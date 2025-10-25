@@ -60,7 +60,7 @@ class ThreatIntelligence:
 
         return result
 
-    # AbuseIPDB
+    #  Check Ip against AbuseIPDB
     def _check_abuseipdb(self, ip):
         try:
             url = "https://api.abuseipdb.com/api/v2/check"
@@ -86,11 +86,33 @@ class ThreatIntelligence:
                 }
             else:
                 self.logger.warning(f"AbuseIPDB API returned status {response.status_code}")
-                return  {
+                return {
                     'error': f"API returned status {response.status_code}"
                 }
         except Exception as e:
             self.logger.error(f"AbuseIPDB check failed for {ip}: {str(e)}")
             return {'error': str(e)}
 
+    # Check Ip against FireHOL black list
+    def _check_firehol(self, ip):
+        try:
+            blocklist = [
+                'https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/firehol_level1.netset',
+                'https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/firehol_level2.netset'
+            ]
 
+            for lists in blocklist:
+                resource = self.session.get(lists, timeout=15)
+                if resource.status_code == 200:
+                    if ip in resource.text:
+                        return {
+                            'listed': True,
+                            'blocklist': lists.split('/')[-1],
+                            'description': 'IP found in FireHOL blocklist'
+                        }
+
+            return {'listed': False}
+
+        except Exception as e:
+            self.logger.error(f"FireHOL check failed for {ip}: {str(e)}")
+            return {'error': str(e)}

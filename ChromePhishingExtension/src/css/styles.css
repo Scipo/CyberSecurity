@@ -1,0 +1,194 @@
+.body_options {
+    font-family: Arial, Helvetica, sans-serif;
+    text-align: center;
+    padding: 20px;
+  }
+  
+  .options_h1 {
+    text-align: center;
+    color: #333;
+    padding: 20px;
+  }
+
+  .h1Red {
+    color : red;
+  }
+  
+  #result {
+    font-family: Arial, Helvetica, sans-serif;
+    text-align: center;
+    margin-top: 20px;
+    font-size: 16px;
+  }
+  
+  input {
+    padding: 8px;
+    font-size: 16px;
+    width: 300px;
+  }
+  
+  button {
+    padding: 8px 16px;
+    font-size: 16px;
+    cursor: pointer;
+  }
+  
+  ul {
+    list-style-type: none;
+    padding: 0;
+  }
+  
+  li {
+    padding: 8px;
+    background-color: #f0f0f0;
+    margin-bottom: 5px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  #remove-button {
+    font-family: Arial, "Helvetica Neue", Helvetica, sans-serif;
+    background-color: #ff4d4d;
+    color: white;
+    padding: 5px 10px;
+    cursor: pointer;
+  }
+
+  #logs {
+    background-color: #f8f9fa;
+    padding: 25px;
+    margin-top: 20px;
+    border-radius: 5px;
+    font-family: monospace;
+    white-space: pre-wrap;
+    text-align: justify;
+  }
+
+  #clear-logs {
+    margin-top: 10px;
+    background-color: #dc3545;
+    color: white;
+  }
+  #addButton{
+    background-color: darkcyan;
+    color: white;
+  }
+  #domainInput{
+    background-color: #fff;
+    background-image: none;
+    background-position: 0 90%;
+    background-repeat: repeat no-repeat;
+    background-size: 4px 3px;
+    border-radius: 15px 225px 255px 15px 15px 255px 225px 15px;
+    border-style: solid;
+    border-width: 2px;
+    box-shadow: rgba(0, 0, 0, .2) 15px 28px 25px -18px;
+    box-sizing: border-box;
+    color: #41403e;
+    border-bottom-left-radius: 15px 255px;
+    border-bottom-right-radius: 225px 15px;
+    border-top-left-radius: 255px 15px;
+    border-top-right-radius: 15px 225px;
+    text-align: center;
+  }
+
+  .blocked_body {
+    font-family: Cambria, Cochin, Georgia, Times, 'Times New Roman', serif;
+    text-align: center;
+    padding: 50px;
+    background-color: #f8f9fa;
+  }
+  .blocked-container {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 20px;
+    background-color: white;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+  }
+  .blocked_body_h1{
+    color: #dc3545; /* Red color for warning */
+  }
+  .par_blocked {
+    font-size: 18px;
+    font-family: Arial, Helvetica, sans-serif;
+    font-style: normal;
+  }
+  #blocked-url {
+    color: #6c757d;
+    word-break: break-all;
+    font-family: Impact, Haettenschweiler, 'Arial Narrow Bold', sans-serif;
+  }
+
+/* CSS */
+.button-55 {
+align-self: center;
+background-color: #fff;
+background-image: none;
+background-position: 0 90%;
+background-repeat: repeat no-repeat;
+background-size: 4px 3px;
+border-radius: 15px 225px 255px 15px 15px 255px 225px 15px;
+border-style: solid;
+border-width: 2px;
+box-shadow: rgba(0, 0, 0, .2) 15px 28px 25px -18px;
+box-sizing: border-box;
+color: #41403e;
+cursor: pointer;
+display: inline-block;
+font-family: Neucha, sans-serif;
+font-size: 1rem;
+line-height: 23px;
+outline: none;
+padding: .75rem;
+text-decoration: none;
+transition: all 235ms ease-in-out;
+border-bottom-left-radius: 15px 255px;
+border-bottom-right-radius: 225px 15px;
+border-top-left-radius: 255px 15px;
+border-top-right-radius: 15px 225px;
+user-select: none;
+-webkit-user-select: none;
+touch-action: manipulation;
+}
+
+.button-55:hover {
+box-shadow: rgba(0, 0, 0, .3) 2px 8px 8px -5px;
+transform: translate3d(0, 2px, 0);
+}
+
+.button-55:focus {
+box-shadow: rgba(0, 0, 0, .3) 2px 8px 4px -6px;
+}
+
+
+/*Settings - options*/
+.scrollable-list {
+  width: auto; /* Set the width of the scrollable area */
+  overflow-y: auto; /* Enable vertical scrolling */
+  padding: 10px; /* Optional: Add some padding */
+}
+
+.scrollable-list ul {
+  list-style-type: none; /* Remove default list styling */
+  padding: 0;
+  margin: 0;
+}
+
+.scrollable-list li {
+  padding: 8px; /* Add padding to list items */
+  border-bottom: 1px solid #eee; /* Optional: Add a border between items */
+}
+
+.scrollable-list li:last-child {
+  border-bottom: none; /* Remove border from the last item */
+}
+
+.scrollable-list p {
+  font-family: Arial, "Helvetica Neue", Helvetica, sans-serif;
+  font-size: small;
+  text-align: left;
+  font-weight: bold;
+
+}

@@ -62,7 +62,7 @@ def display_results(results):
 
     for ip, result in results.items():
         if result.get('is_malicious', True):
-            malicious_cnt+=1
+            malicious_cnt += 1
             threat_level = result.get('threat_level', 'unknown')
             if threat_level == 'high':
                 high_threat_cnt += 1
@@ -91,19 +91,5 @@ def display_results(results):
 
     if malicious_cnt == 0:
         print("\n No malicious IPs detected in current network connections.")
-    else:  print(f"\n Found {malicious_cnt} potentially malicious IP addresses!")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    else:
+        print(f"\n Found {malicious_cnt} potentially malicious IP addresses!")

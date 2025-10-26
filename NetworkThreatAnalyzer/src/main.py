@@ -26,3 +26,4 @@ def main():
     # Setup logging
     logger = setup_logging(args.verbose)
 
+

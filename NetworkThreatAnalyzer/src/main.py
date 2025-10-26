@@ -10,8 +10,9 @@ import json
 from datetime import datetime
 
 from src.network_scanner import NetworkScanner
-from src.threat_intel import ThreatIntel
-from src.utils import setup_logging, save_result, display_result
+from src.threat_intel import ThreatIntelligence
+from src.utils import setup_logging, save_results, display_results
 
 
 def main():
+    pass

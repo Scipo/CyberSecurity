@@ -33,5 +33,5 @@ A lightweight Chrome extension that detects and warns users about phishing websi
    - Work silently in the background otherwise
 ## ⚙️ API Configuration
     - Get your API key from Google Cloud Console
-    - Enable "Safe Browsing API"
+    - Enable Safe Browsing API
     - (Recommended) Restrict the API key to your extension

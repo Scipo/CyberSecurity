@@ -18,8 +18,8 @@ A lightweight Chrome extension that detects and warns users about phishing websi
 ### Setup Steps
 1. **Clone the repository**:
    ```bash
-   git clone https://github.com/Scipo/phishing-detector-extension.git
-   cd phishing-detector-extension
+   git clone https://github.com/Scipo/CyberSecurity.git
+   cd ChromePhishingExtension
 2. **Configure your API key**:
    - Open js/background.js
    - Replace YOUR_API_KEY_HERE with your actual Google API key
@@ -27,3 +27,11 @@ A lightweight Chrome extension that detects and warns users about phishing websi
    - Open chrome://extensions/
    - Enable "Developer mode" (toggle in top-right)
    - Click "Load unpacked" and select the extension folder
+## 📌 Usage
+   - Automatically check every website you visit
+   - Show a warning notification if a phishing site is detected
+   - Work silently in the background otherwise
+## ⚙️ API Configuration
+    - Get your API key from Google Cloud Console
+    - Enable "Safe Browsing API"
+    - (Recommended) Restrict the API key to your extension

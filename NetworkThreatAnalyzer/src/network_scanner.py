@@ -44,18 +44,18 @@ class NetworkScanner:
                         parts = line.split()
                         if len(parts) >= 4:
                             proto = parts[0]
-                            local_add = parts[1]
-                            forin_add = parts[2]
+                            local_addr = parts[1]
+                            foreign_addr = parts[2]
                             state = parts[3] if len(parts) >= 3 else 'UNKNOWN'
 
                             # Extract Ip from address(IP:PORT)
-                            foring_ip = forin_add.split(":")[0]
-                            if self._is_valid_ip(foring_ip):
-                                connection[foring_ip].append(
+                            foreign_ip = foreign_addr.split(":")[0]
+                            if self._is_valid_ip(foreign_ip):
+                                connection[foreign_ip].append(
                                     {
                                         'protocol': proto,
-                                        'local_address': local_add,
-                                        'foreign_address': forin_add,
+                                        'local_address': local_addr,
+                                        'foreign_address': foreign_addr,
                                         'state': state,
                                         'source': 'netstat'
                                     }
@@ -83,18 +83,18 @@ class NetworkScanner:
                         parts = line.split()
                         if len(parts) >= 4:
                             proto = 'tcp'
-                            local_add = parts[3]
-                            forin_add = parts[4]
+                            local_addr = parts[3]
+                            foreign_addr = parts[4]
 
                             # Extract Ip from address(IP:PORT)
-                            foring_ip = forin_add.split(".")[:4]
-                            foring_ip = '.'.join(foring_ip) if len(foring_ip) == 4 else forin_add
-                            if self._is_valid_ip(foring_ip):
-                                connection[foring_ip].append(
+                            foreign_ip = foreign_addr.split(".")[:4]
+                            foreign_ip = '.'.join(foreign_ip) if len(foreign_ip) == 4 else foreign_addr
+                            if self._is_valid_ip(foreign_ip):
+                                connection[foreign_ip].append(
                                     {
                                         'protocol': proto,
-                                        'local_address': local_add,
-                                        'foreign_address': forin_add,
+                                        'local_address': local_addr,
+                                        'foreign_address': foreign_addr,
                                         'state': 'ESTABLISHED',
                                         'source': 'netstat'
                                     }
@@ -123,16 +123,16 @@ class NetworkScanner:
                         if len(parts) >= 5:
                             proto = parts[0]
                             local_addr = parts[3]
-                            foring_addr = parts[4]
+                            foreign_addr = parts[4]
                             state = parts[5] if len(parts) >= 5 else 'UNKNOWN'
 
-                            foring_ip = foring_addr.split(':')[0]
+                            foreign_ip = foreign_addr.split(':')[0]
 
-                            if self._is_valid_ip(foring_ip):
-                                connection[foring_ip].append({
+                            if self._is_valid_ip(foreign_ip):
+                                connection[foreign_ip].append({
                                     'protocol': proto,
                                     'local_address': local_addr,
-                                    'foreign_address': foring_ip,
+                                    'foreign_address': foreign_ip,
                                     'state': state,
                                     'source': 'netstat'
                                 })
@@ -150,8 +150,7 @@ class NetworkScanner:
         """Getting Windows logs for network connection"""
         try:
             res = subprocess.run(
-                ['powershell',
-                 'Get-NetTCPConnection | Select-Object LocalAddress,RemoteAddress,State | ConvertTo-Json'],
+                ['powershell','Get-NetTCPConnection | Select-Object LocalAddress,RemoteAddress,State | ConvertTo-Json'],
                 capture_output=True,
                 text=True,
                 timeout=20

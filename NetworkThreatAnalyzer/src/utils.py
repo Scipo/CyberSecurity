@@ -61,7 +61,7 @@ def display_results(results):
     high_threat_cnt = 0
 
     for ip, result in results.items():
-        if result.get('is_malicious', True):
+        if result.get('is_malicious', False):
             malicious_cnt += 1
             threat_level = result.get('threat_level', 'unknown')
             if threat_level == 'high':

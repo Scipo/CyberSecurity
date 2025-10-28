@@ -100,8 +100,9 @@ class NetworkScanner:
                                     }
                                 )
             self._get_macos_lsof(connection)
+            self._get_macos_logs(connection)
         except Exception as e:
-            self.logger.error(f"Windows scan error: {str(e)}")
+            self.logger.error(f"MACOS scan error: {str(e)}")
 
         return dict(connection)
 
@@ -150,7 +151,8 @@ class NetworkScanner:
         """Getting Windows logs for network connection"""
         try:
             res = subprocess.run(
-                ['powershell','Get-NetTCPConnection | Select-Object LocalAddress,RemoteAddress,State | ConvertTo-Json'],
+                ['powershell',
+                 'Get-NetTCPConnection | Select-Object LocalAddress,RemoteAddress,State | ConvertTo-Json'],
                 capture_output=True,
                 text=True,
                 timeout=20
@@ -206,6 +208,45 @@ class NetworkScanner:
         except Exception as e:
             self.logger.debug(f"Could not get lsof info: {str(e)}")
 
+    def _get_macos_logs(self, connections):
+        """Parsing MACOS logs for network connection"""
+        log_commands = [
+            # Try log command for recent network activity
+            ['log', 'show', '--predicate', 'subsystem == "network"', '--last', '1h', '--info'],
+            # Try system.log files
+            ['grep', '-E', '(network|connection|connect|ESTABLISHED)', '/var/log/system.log'],
+            # Try application firewall logs
+            ['grep', '-E', '(allow|deny|block)', '/var/log/appfirewall.log'],
+        ]
+
+        for cmd in log_commands:
+            try:
+                res = subprocess.run(
+                    cmd, capture_output=True, text=True, timeout=15
+                )
+
+                if res.returncode == 0 and res.stdout.strip():
+                    ip_pattern = r'\b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b'
+                    ips = re.findall(ip_pattern, res.stdout)
+                    for ip in set(ips):
+                        if self._is_valid_ip(ip) and not self._is_private_ip(ip):
+                            if ip not in connections:
+                                connections[ip] = []
+                            connections[ip].append({
+                                'protocol': 'unknown',
+                                'source': f'macos_log:{cmd[0]}',
+                                'timestamp': 'recent',
+                                'log_context': 'found in macOS system logs'
+                            })
+            except subprocess.TimeoutExpired:
+                self.logger.debug(f"Log command timed out: {cmd[0]}")
+                continue
+            except FileNotFoundError:
+                self.logger.debug(f"Log command not available: {cmd[0]}")
+            except Exception as e:
+                self.logger.debug(f"Could not read macOS logs with {cmd[0]}: {str(e)}")
+                continue
+
     def _get_linux_logs(self, connections):
         """Parsing Linux system logs for network connection"""
 
@@ -217,23 +258,39 @@ class NetworkScanner:
         for log in log_files:
             try:
                 res = subprocess.run(
-                    ['grep', '-E', '(Connection|connect|ESTABLISHED)', log],
+                    ['test', '-f', log],
+                    capture_output=True,
+                    timeout=5
+                )
+                if res.returncode != 0:
+                    continue
+
+                res = subprocess.run(
+                    ['grep', '-E', '(Connection|connect|ESTABLISHED|Failed)', log],
                     capture_output=True,
                     text=True,
                     timeout=10,
                 )
                 if res.returncode == 0:
-                    ip_pattern = r'\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b'
+                    # ip_pattern = r'\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b'
+                    ip_pattern = r'\b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b'
                     ips = re.findall(ip_pattern, res.stdout)
 
-                    for ip in ips:
+                    for ip in set(ips):
                         if self._is_valid_ip(ip) and not self._is_private_ip(ip):
+                            if ip not in connections:
+                                connections[ip] = []
                             connections[ip].append({
                                 'protocol': 'unknown',
                                 'source': f'log:{log}',
-                                'timestamp': 'various'
+                                'timestamp': 'various',
+                                'log_context': 'found in system logs'
                             })
-            except  Exception:
+            except  subprocess.TimeoutExpired:
+                self.logger.debug(f"Log check timed out for {log}")
+                continue
+            except Exception as e:
+                self.logger.debug(f"Could not read log file {log}: {str(e)}")
                 continue
 
     # Extract public IPs

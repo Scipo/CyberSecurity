@@ -112,7 +112,8 @@ class NetworkScanner:
 
         try:
             res = subprocess.run(
-                ['netstat', '-tun', '-n'],
+                ['ss', '-tun', '-n'],
+                #['netstat', '-tun', '-n'],
                 capture_output=True,
                 text=True,
                 timeout=30,

@@ -13,7 +13,7 @@ from datetime import datetime
 from network_scanner import NetworkScanner
 from threat_intel import ThreatIntelligence
 from utils import setup_logging, save_results, display_results
-from src.config.settings import load_config, save_config, get_api_key
+from config.settings import load_config, save_config, get_api_key
 
 
 def display_menu():
@@ -176,7 +176,7 @@ def main():
 
     args = parser.parse_args()
 
-    if args.scann:
+    if args.scan:
         direct_run(args)
     else:
         main_menu()

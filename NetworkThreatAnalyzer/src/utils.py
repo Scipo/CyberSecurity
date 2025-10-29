@@ -117,3 +117,4 @@ def display_results(results):
             print("   - Investigate high threat IPs immediately")
             print("   - Consider blocking these IPs in your firewall")
             print("   - Check for any unauthorized network activity")
+

@@ -5,16 +5,16 @@ Network threat analyzer - Main function
 """
 
 import argparse
+import os
 import sys
 import json
 from datetime import datetime
-
-from dulwich.objects import parse_timezone
 
 from network_scanner import NetworkScanner
 from threat_intel import ThreatIntelligence
 from utils import setup_logging, save_results, display_results
 from src.config.settings import load_config, save_config, get_api_key
+
 
 def display_menu():
     """Display the main menu options."""
@@ -28,12 +28,14 @@ def display_menu():
     print("5. Exit")
     print("=" * 50)
 
+
 def get_menu_choice():
     try:
         choice = input("\nEnter your choice (1-5): ").strip()
         return int(choice) if choice.isdigit() else None
     except (ValueError, EOFError):
         return None
+
 
 def configure_api_key():
     print("\n--- Configure AbuseIPDB API Key ---")
@@ -54,6 +56,7 @@ def configure_api_key():
         print("No API key configured. Some features will be limited.")
     input("\nPress Enter to continue...")
 
+
 def view_configuration():
     config = load_config()
     print("\n--- Current Configuration ---")
@@ -61,8 +64,106 @@ def view_configuration():
     if config.get('ABUSEIPDB_API_KEY'):
         masked_key = config['ABUSEIPDB_API_KEY'][:8] + '***' + config['ABUSEIPDB_API_KEY'][-4]
         print(f"AbuseIPDB API Key: {masked_key}")
+    else:
+        print("AbuseIPDB API Key: Not configured")
+    print(f"Config File: {os.path.join(os.path.expanduser('~'), '.network_threat_analyzer', 'config.json')}")
+
+    input("\nPress Enter to continue...")
 
 
+def test_api_connection():
+    print("\n--- Testing API Connection ---")
+    api_key = get_api_key()
+    if not api_key:
+        print("No API key configured. Please configure it first.")
+        input("\nPress Enter to continue...")
+        return
+    threat_intel = ThreatIntelligence(setup_logging(False), api_key)
+    test_ip = "8.8.8.8"
+    print(f"Testing with IP: {test_ip}")
+
+    try:
+        result = threat_intel._check_abuseipdb(test_ip)
+        if 'error' in result:
+            print(f"API Test Failed: {result['error']}")
+        else:
+            print("API Connection Successful!")
+            print(f"Abuse Confidence Score: {result.get('abuseConfidenceScore', 0)}%")
+            print(f"Total Reports: {result.get('totalReports', 0)}")
+            print(f"ISP: {result.get('isp', 'Unknown')}")
+            print(f"Country: {result.get('countryCode', 'Unknown')}")
+    except Exception as e:
+        print(f"API Test Failed: {str(e)}")
+    input("\nPress Enter to continue...")
+
+
+def run_network_scan():
+    logger = setup_logging(False)
+
+    try:
+        api_key = get_api_key()
+        if not api_key:
+            print("\nWarning: No AbuseIPDB API key configured.")
+            print("Some threat intelligence features will be limited.")
+            print("You can configure it from the main menu (Option 2).")
+            proceed = input("Continue anyway? (y/N): ").strip().lower()
+            if proceed != 'y':
+                return
+
+        # Init components
+        scanner = NetworkScanner(logger)
+        threat_intel = ThreatIntelligence(logger, api_key)
+
+        # Gather network information
+        print("\nGathering network connection information...")
+        network_data = scanner.get_network_info()
+
+        if not network_data:
+            print("No network data collected. Please check your network connections.")
+            return
+
+        # Extract unique public IPs
+        public_ips = scanner.extract_public_ips(network_data)
+        print(f"Found {len(public_ips)} unique public IPs to analyze")
+
+        print("Checking IPs against threat intelligence feeds...")
+        threat_results = threat_intel.check_ips(public_ips)
+
+        # Result Display
+        display_results(threat_results)
+
+        # save results
+        output_file = f"threat_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        save_results(threat_results, output_file)
+        print(f"Results saved to: {output_file}")
+
+        # Summary
+        malicious_count = sum(1 for result in threat_results.values() if result.get('is_malicious', False))
+        print(f"\nAnalysis complete: {malicious_count} malicious IPs found out of {len(public_ips)} total")
+    except KeyboardInterrupt:
+        print("Scan interrupted by user.")
+    except Exception as e:
+        print(f"Application error: {str(e)}")
+    input("Press Enter to continue.....")
+
+
+def main_menu():
+    while True:
+        display_menu()
+        choice = get_menu_choice()
+        if choice == 1:
+            run_network_scan()
+        elif choice == 2:
+            configure_api_key()
+        elif choice == 3:
+            view_configuration()
+        elif choice == 4:
+            test_api_connection()
+        elif choice == 5:
+            print("\nExit!!!")
+            break
+        else:
+            print("Invalid choice. Please enter a number between 1-5.")
 
 
 def main():
@@ -75,6 +176,12 @@ def main():
 
     args = parser.parse_args()
 
+    if args.scann:
+        direct_run(args)
+    else:
+        main_menu()
+
+def direct_run(args):
     # Setup logging
     logger = setup_logging(args.verbose)
 

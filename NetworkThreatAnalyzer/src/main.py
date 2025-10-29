@@ -9,9 +9,60 @@ import sys
 import json
 from datetime import datetime
 
+from dulwich.objects import parse_timezone
+
 from network_scanner import NetworkScanner
 from threat_intel import ThreatIntelligence
 from utils import setup_logging, save_results, display_results
+from src.config.settings import load_config, save_config, get_api_key
+
+def display_menu():
+    """Display the main menu options."""
+    print("\n" + "=" * 50)
+    print("    NETWORK THREAT ANALYZER")
+    print("=" * 50)
+    print("1. Scan Network & Check Threats")
+    print("2. Configure AbuseIPDB API Key")
+    print("3. View Current Configuration")
+    print("4. Test API Connection")
+    print("5. Exit")
+    print("=" * 50)
+
+def get_menu_choice():
+    try:
+        choice = input("\nEnter your choice (1-5): ").strip()
+        return int(choice) if choice.isdigit() else None
+    except (ValueError, EOFError):
+        return None
+
+def configure_api_key():
+    print("\n--- Configure AbuseIPDB API Key ---")
+    print("You can get a free API key from: https://www.abuseipdb.com/")
+    print("Leave empty to use existing key or skip configuration.")
+
+    api_key = input("Enter your AbuseIPDB API key: ").strip()
+
+    if api_key:
+        success = save_config({'ABUSEIPDB_API_KEY': api_key})
+        if success:
+            print("API key configured successfully!")
+        else:
+            print("Failed to save API key configuration.")
+    elif not api_key and get_api_key():
+        print("Using existing API key.")
+    else:
+        print("No API key configured. Some features will be limited.")
+    input("\nPress Enter to continue...")
+
+def view_configuration():
+    config = load_config()
+    print("\n--- Current Configuration ---")
+
+    if config.get('ABUSEIPDB_API_KEY'):
+        masked_key = config['ABUSEIPDB_API_KEY'][:8] + '***' + config['ABUSEIPDB_API_KEY'][-4]
+        print(f"AbuseIPDB API Key: {masked_key}")
+
+
 
 
 def main():

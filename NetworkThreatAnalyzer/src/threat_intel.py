@@ -1,33 +1,32 @@
 """
-    Checking the IPs for threats with AbuseIPDB and FireHOL
+Threat Intelligence Module - Check IPs against various threat intelligence feeds
 """
 
 import os
-import time
 import requests
+import time
 from urllib.parse import urlencode
 
 
 class ThreatIntelligence:
-    """Checking IPs for threat using different APIs"""
+    """Threat intelligence checker using multiple free APIs."""
 
     def __init__(self, logger, api_key=None):
         self.logger = logger
-        self.api_key = api_key
+        self.api_key = api_key or os.getenv('ABUSEIPDB_API_KEY')
         self.session = requests.Session()
-        self.session.headers.update(
-            {
-                'User-Agent': 'NetworkThreatAnalyzer/1.0',
-                'Accept': 'application/json'
-            }
-        )
+        self.session.headers.update({
+            'User-Agent': 'NetworkThreatAnalyzer/1.0',
+            'Accept': 'application/json'
+        })
 
-    # Checking IPs
     def check_ips(self, ips):
-        result = {}
+        """Check list of IPs against threat intelligence feeds."""
+        results = {}
+
         for ip in ips:
             self.logger.debug(f"Checking IP: {ip}")
-            res = {
+            result = {
                 'ip': ip,
                 'checks_performed': [],
                 'is_malicious': False,
@@ -35,32 +34,32 @@ class ThreatIntelligence:
                 'details': {}
             }
 
-            # checking with AbuseIPDB
+            # Check AbuseIPDB if API key is available
             if self.api_key:
                 abuse_result = self._check_abuseipdb(ip)
-                res['checks_performed'].append('abuseipdb')
-                res['details']['abuseipdb'] = abuse_result
+                result['checks_performed'].append('abuseipdb')
+                result['details']['abuseipdb'] = abuse_result
 
                 if abuse_result.get('abuseConfidenceScore', 0) > 25:
-                    res['is_malicious'] = True
-                    res['threat_level'] = 'medium' if abuse_result['abuseConfidenceScore'] <= 75 else 'high'
+                    result['is_malicious'] = True
+                    result['threat_level'] = 'medium' if abuse_result['abuseConfidenceScore'] <= 75 else 'high'
 
-            # checking FireHOL Ip black list
-            firehol_res = self._check_firehol(ip)
-            res['checks_performed'].append('firehol')
-            res['details']['firehol'] = firehol_res
+            # Check FireHOL IP blocklist
+            firehol_result = self._check_firehol(ip)
+            result['checks_performed'].append('firehol')
+            result['details']['firehol'] = firehol_result
 
-            if firehol_res.get('listed', False):
-                res['is_malicious'] = True
-                res['threat_level'] = 'high'
+            if firehol_result.get('listed', False):
+                result['is_malicious'] = True
+                result['threat_level'] = 'high'
 
-            result[ip] = res
+            results[ip] = result
 
             time.sleep(0.5)
 
-        return result
+        return results
 
-    #  Check Ip against AbuseIPDB
+    # Check IP against AbuseIPDB.
     def _check_abuseipdb(self, ip):
         try:
             url = "https://api.abuseipdb.com/api/v2/check"
@@ -74,6 +73,7 @@ class ThreatIntelligence:
             }
 
             response = self.session.get(url, params=params, headers=headers, timeout=10)
+
             if response.status_code == 200:
                 data = response.json().get('data', {})
                 return {
@@ -86,28 +86,28 @@ class ThreatIntelligence:
                 }
             else:
                 self.logger.warning(f"AbuseIPDB API returned status {response.status_code}")
-                return {
-                    'error': f"API returned status {response.status_code}"
-                }
+                return {'error': f"API returned status {response.status_code}"}
+
         except Exception as e:
             self.logger.error(f"AbuseIPDB check failed for {ip}: {str(e)}")
             return {'error': str(e)}
 
-    # Check Ip against FireHOL black list
+    # Check Ip against FireHOL blocklists
     def _check_firehol(self, ip):
         try:
-            blocklist = [
+            # FireHOL provides various blocklists - we'll check a subset
+            blocklists = [
                 'https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/firehol_level1.netset',
                 'https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/firehol_level2.netset'
             ]
 
-            for lists in blocklist:
-                resource = self.session.get(lists, timeout=15)
-                if resource.status_code == 200:
-                    if ip in resource.text:
+            for list_url in blocklists:
+                response = self.session.get(list_url, timeout=15)
+                if response.status_code == 200:
+                    if ip in response.text:
                         return {
                             'listed': True,
-                            'blocklist': lists.split('/')[-1],
+                            'blocklist': list_url.split('/')[-1],
                             'description': 'IP found in FireHOL blocklist'
                         }
 

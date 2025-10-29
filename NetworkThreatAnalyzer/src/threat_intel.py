@@ -116,3 +116,4 @@ class ThreatIntelligence:
         except Exception as e:
             self.logger.error(f"FireHOL check failed for {ip}: {str(e)}")
             return {'error': str(e)}
+

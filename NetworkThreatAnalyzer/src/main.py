@@ -169,10 +169,12 @@ def main_menu():
 def main():
     """ Main entry point """
     parser = argparse.ArgumentParser(description='Network Threat Analyzer')
-    parser.add_argument('--output', '-o', default='threat_report.json',
-                        help='Output file for results (default: threat_report.json)')
-    parser.add_argument('--verbose', '-v', action='store_true', help='Enable verbose output')
-    parser.add_argument('--api-key', help='AbuseIPDB API key (or set ABUSEIPDB_API_KEY env var)')
+    parser.add_argument('--output', '-o', help='Output file for results')
+    parser.add_argument('--verbose', '-v', action='store_true',
+                        help='Enable verbose output')
+    parser.add_argument('--api-key', help='AbuseIPDB API key')
+    parser.add_argument('--scan', '-s', action='store_true',
+                        help='Run scan directly without menu')
 
     args = parser.parse_args()
 
@@ -180,6 +182,7 @@ def main():
         direct_run(args)
     else:
         main_menu()
+
 
 def direct_run(args):
     # Setup logging

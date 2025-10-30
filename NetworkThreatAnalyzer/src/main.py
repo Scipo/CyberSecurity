@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 """
 Network threat analyzer - Main function
 """
@@ -79,22 +77,22 @@ def test_api_connection():
         input("\nPress Enter to continue...")
         return
     threat_intel = ThreatIntelligence(setup_logging(False), api_key)
-    test_ip = "8.8.8.8"
-    print(f"Testing with IP: {test_ip}")
-
-    try:
-        result = threat_intel._check_abuseipdb(test_ip)
-        if 'error' in result:
-            print(f"API Test Failed: {result['error']}")
-        else:
-            print("API Connection Successful!")
-            print(f"Abuse Confidence Score: {result.get('abuseConfidenceScore', 0)}%")
-            print(f"Total Reports: {result.get('totalReports', 0)}")
-            print(f"ISP: {result.get('isp', 'Unknown')}")
-            print(f"Country: {result.get('countryCode', 'Unknown')}")
-    except Exception as e:
-        print(f"API Test Failed: {str(e)}")
-    input("\nPress Enter to continue...")
+    test_ip = ["109.205.213.30","34.92.247.119 ", "8.8.8.8", "128.14.236.128"]
+    for ip in test_ip:
+         print(f"Testing with IP: {ip}")
+         try:
+            result = threat_intel._check_abuseipdb(ip)
+            if 'error' in result:
+                print(f"API Test Failed: {result['error']}")
+            else:
+                print("API Connection Successful!")
+                print(f"Abuse Confidence Score: {result.get('abuseConfidenceScore', 0)}%")
+                print(f"Total Reports: {result.get('totalReports', 0)}")
+                print(f"ISP: {result.get('isp', 'Unknown')}")
+                print(f"Country: {result.get('countryCode', 'Unknown')}")
+         except Exception as e:
+            print(f"API Test Failed: {str(e)}")
+         print(8*'*')
 
 
 def run_network_scan():

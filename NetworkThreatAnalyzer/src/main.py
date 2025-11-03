@@ -81,7 +81,7 @@ def test_api_connection():
     for ip in test_ip:
          print(f"Testing with IP: {ip}")
          try:
-            result = threat_intel._check_abuseipdb(ip)
+            result = threat_intel._check_abuseipdb_sync(ip)
             if 'error' in result:
                 print(f"API Test Failed: {result['error']}")
             else:

@@ -7,6 +7,7 @@ import hashlib
 from pathlib import Path
 from datetime import datetime, timedelta
 
+
 class ThreatIntelligenceCache:
 
     def __init__(self, cache_dir=None, ttl_hours=24):
@@ -48,6 +49,7 @@ class ThreatIntelligenceCache:
             if cache_file.exists():
                 cache_file.unlink()
             return None
+
     # Cache result for IP.
     def set_cache(self, ip, data):
 
@@ -95,6 +97,6 @@ class ThreatIntelligenceCache:
             print(f"Error clearing cache: {e}")
             return False
 
+
 # Global cache instance
 cache = ThreatIntelligenceCache()
-

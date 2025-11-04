@@ -11,10 +11,14 @@ from config.settings import get_api_key
 class ThreatIntelligence:
     """Threat intelligence checker using multiple free APIs with async support."""
 
-    def __init__(self, logger, api_key=None):
+    def __init__(self, logger, api_key=None, use_cache=True):
         self.logger = logger
         self.api_key = api_key or get_api_key()
         self.timeout = aiohttp.ClientTimeout(total=10)
+        self.use_cache = use_cache
+        if use_cache:
+            from cache import cache
+            self.cache = cache
 
     async def check_ips_async(self, ips):
         """Check list of IPs against threat intelligence feeds asynchronously."""
@@ -50,6 +54,13 @@ class ThreatIntelligence:
 
     async def _check_ip_async(self, session, semaphore, ip):
         """Check a single IP asynchronously."""
+        # check cache first
+        if self.use_cache:
+            cached_result = self.cache.get_cache(ip)
+            if cached_result:
+                self.logger.debug(f"Using cached result for {ip}")
+                return cached_result
+
         async with semaphore:
             self.logger.debug(f"Checking IP: {ip}")
             result = {
@@ -78,6 +89,10 @@ class ThreatIntelligence:
             if firehol_result.get('listed', False):
                 result['is_malicious'] = True
                 result['threat_level'] = 'high'
+
+            # cache the result
+            if self.use_cache:
+                self.cache.set_cache(ip, result)
 
             # Small delay to be nice to APIs
             await asyncio.sleep(0.1)

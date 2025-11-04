@@ -1,18 +1,11 @@
 """
- Caching
+Caching module for threat intelligence results
 """
 
 import json
-import time
 import hashlib
-import os
-from opcode import opname
 from pathlib import Path
-from functools import lru_cache
 from datetime import datetime, timedelta
-
-
-
 
 class ThreatIntelligenceCache:
 
@@ -30,8 +23,8 @@ class ThreatIntelligenceCache:
         cache_key = self._get_cache_key(ip)
         return self.cache_dir / f"{cache_key}.json"
 
-    # Get cache result for IP
-    def get_cache_result_ip(self, ip):
+    # Get cached result for IP.
+    def get_cache(self, ip):
         cache_file = self._get_cache_file(ip)
 
         if not cache_file.exists():
@@ -39,24 +32,27 @@ class ThreatIntelligenceCache:
 
         try:
             with open(cache_file, 'r') as f:
-                cache_data = json.load(f)
+                cached_data = json.load(f)
 
-            # chacking if the cache is still valid
-            cache_time = datetime.fromtimestamp(cache_data['timestamp'])
+            # Check if cache is still valid
+            cache_time = datetime.fromisoformat(cached_data['timestamp'])
             if (datetime.now() - cache_time).total_seconds() > self.ttl_seconds:
-                # cache expired
+                # Cache expired
                 cache_file.unlink()
                 return None
-            return cache_data['data']
+
+            return cached_data['data']
+
         except (json.JSONDecodeError, KeyError, IOError):
             # Corrupted cache file, remove it
             if cache_file.exists():
                 cache_file.unlink()
             return None
+    # Cache result for IP.
+    def set_cache(self, ip, data):
 
-    # Cache result for IP
-    def set_cache_result_ip(self, ip, data):
         cache_file = self._get_cache_file(ip)
+
         try:
             cache_data = {
                 'timestamp': datetime.now().isoformat(),
@@ -70,7 +66,7 @@ class ThreatIntelligenceCache:
         except IOError:
             return False
 
-    # clear expired cache entries
+    # Clear expired cache entries
     def clear_expired(self):
         try:
             for cache_file in self.cache_dir.glob("*.json"):
@@ -78,18 +74,19 @@ class ThreatIntelligenceCache:
                     with open(cache_file, 'r') as f:
                         cached_data = json.load(f)
 
-                    cached_time = datetime.fromisoformat(cached_data['timestamp'])
-                    if (datetime.now() - cached_time).total_seconds() > self.ttl_seconds:
+                    cache_time = datetime.fromisoformat(cached_data['timestamp'])
+                    if (datetime.now() - cache_time).total_seconds() > self.ttl_seconds:
                         cache_file.unlink()
+
                 except (json.JSONDecodeError, KeyError, IOError):
-                    # remove the corrupt file
+                    # Corrupted file, remove it
                     cache_file.unlink()
         except Exception as e:
             print(f"Error clearing expired cache: {e}")
 
-
+    # Clear all cache entries
     def clear_all(self):
-        # clear all cache entries
+
         try:
             for cache_file in self.cache_dir.glob("*.json"):
                 cache_file.unlink()
@@ -98,6 +95,6 @@ class ThreatIntelligenceCache:
             print(f"Error clearing cache: {e}")
             return False
 
-
 # Global cache instance
-cache = ThreatIntelligenceCache
+cache = ThreatIntelligenceCache()
+

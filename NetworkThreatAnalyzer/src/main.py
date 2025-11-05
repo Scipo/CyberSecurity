@@ -64,7 +64,7 @@ def view_configuration():
         print(f"AbuseIPDB API Key: {masked_key}")
     else:
         print("AbuseIPDB API Key: Not configured")
-    print(f"Config File: {os.path.join(os.path.expanduser('~'), '.network_threat_analyzer', 'config.json')}")
+    print(f"Config File: {os.path.join(os.path.expanduser('~'), '.NetworkThreatAnalyzer', 'config.json')}")
 
     input("\nPress Enter to continue...")
 

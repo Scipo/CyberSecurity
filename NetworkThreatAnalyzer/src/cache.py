@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 class ThreatIntelligenceCache:
 
     def __init__(self, cache_dir=None, ttl_hours=24):
-        self.cache_dir = cache_dir or Path.home() / '.network_threat_analyzer' / 'cache'
+        self.cache_dir = cache_dir or Path.home() / '.NetworkThreatAnalyzer' / 'cache'
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self.ttl_seconds = ttl_hours * 3600
 

@@ -31,10 +31,10 @@ def get_config_dir():
     config_dir.mkdir(exist_ok=True)
     return config_dir
 
-def get_config_file(format='json'):
+def get_config_file(formats='json'):
     """Get the configuration file path."""
     config_dir = get_config_dir()
-    if format == 'yaml':
+    if formats == 'yaml':
         return config_dir / 'config.yaml'
     else:
         return config_dir / 'config.json'
@@ -67,10 +67,10 @@ def load_config():
 
     return config
 
-def save_config(config_updates, format='json'):
+def save_config(config_updates, formats='json'):
     """Save configuration updates to file."""
     try:
-        config_file = get_config_file(format)
+        config_file = get_config_file(formats)
 
         # Load existing config or create new
         existing_config = load_config()
@@ -79,7 +79,7 @@ def save_config(config_updates, format='json'):
         existing_config.update(config_updates)
 
         # Save to file
-        if format == 'yaml':
+        if formats == 'yaml':
             with open(config_file, 'w') as f:
                 yaml.dump(existing_config, f, indent=2, default_flow_style=False)
         else:
@@ -109,11 +109,11 @@ def validate_config(config):
 
     return errors
 
-def export_config(format='json'):
+def export_config(formats='json'):
     """Export current configuration to string."""
     config = load_config()
 
-    if format == 'yaml':
+    if formats == 'yaml':
         return yaml.dump(config, indent=2, default_flow_style=False)
     else:
         return json.dumps(config, indent=2)

@@ -6,28 +6,47 @@ import logging
 import json
 import sys
 from datetime import datetime
-from typing import Dict, Any
+import rich
+
+try:
+    from rich.console import Console
+    from rich.table import Table
+    from rich.panel import Panel
+    from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
+    from rich.text import Text
+    from rich import box
+    from rich.markdown import Markdown
+    RICH_AVAILABLE = True
+except ImportError:
+    RICH_AVAILABLE = False
+
+console = Console() if RICH_AVAILABLE else None
 
 def setup_logging(verbose=False):
-    """Setup logging configuration."""
+    """Setup logging configuration with Rich support."""
     logger = logging.getLogger('NetworkThreatAnalyzer')
     logger.setLevel(logging.DEBUG if verbose else logging.INFO)
 
     # Clear any existing handlers
     logger.handlers.clear()
 
-    # Create console handler
-    handler = logging.StreamHandler(sys.stdout)
-    handler.setLevel(logging.DEBUG if verbose else logging.INFO)
-
-    # Create formatter
-    formatter = logging.Formatter(
-        '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    )
-    handler.setFormatter(formatter)
-
-    # Add handler to logger
-    logger.addHandler(handler)
+    if RICH_AVAILABLE and verbose:
+        from rich.logging import RichHandler
+        handler = RichHandler(rich_tracebacks=True, markup=True)
+        handler.setLevel(logging.DEBUG if verbose else logging.INFO)
+        logger.addHandler(handler)
+    else:
+        # Standard console handler
+        # Create console handler
+        handler = logging.StreamHandler(sys.stdout)
+        handler.setLevel(logging.DEBUG if verbose else logging.INFO)
+        # Create formatter
+        formatter = logging.Formatter(
+            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        )
+        handler.setFormatter(formatter)
+        # Add handler to logger
+        logger.addHandler(handler)
 
     return logger
 

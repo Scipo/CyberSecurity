@@ -16,11 +16,13 @@ try:
     from rich.text import Text
     from rich import box
     from rich.markdown import Markdown
+
     RICH_AVAILABLE = True
 except ImportError:
     RICH_AVAILABLE = False
 
 console = Console() if RICH_AVAILABLE else None
+
 
 def setup_logging(verbose=False):
     """Setup logging configuration with Rich support."""
@@ -50,6 +52,7 @@ def setup_logging(verbose=False):
 
     return logger
 
+
 def save_results(results, filename):
     """Save threat analysis results to JSON file."""
     try:
@@ -71,6 +74,8 @@ def save_results(results, filename):
     except Exception as e:
         print(f"❌ Failed to save results: {str(e)}")
         return False
+
+
 def display_rich_results(results):
     """Display results OK"""
     if not RICH_AVAILABLE:
@@ -86,9 +91,12 @@ def display_rich_results(results):
     summary_table.add_column("Value", style="white")
 
     summary_table.add_row("Total IPs checks", str(len(results)))
-    summary_table.add_row("Malicious IPs Found", f"[red]{malicious_cnt}[/red]" if malicious_cnt > 0 else f"[green]{malicious_cnt}[/green]")
-    summary_table.add_row("High Threat IPs",f"[bold red]{high_threat_cnt}[/bold red]" if high_threat_cnt > 0 else f"[green]{high_threat_cnt}[/green]")
-    summary_table.add_row("Medium Threat IPs",f"[yellow]{medium_threat_cnt}[/yellow]" if medium_threat_cnt > 0 else f"[green]{medium_threat_cnt}[/green]")
+    summary_table.add_row("Malicious IPs Found",
+                          f"[red]{malicious_cnt}[/red]" if malicious_cnt > 0 else f"[green]{malicious_cnt}[/green]")
+    summary_table.add_row("High Threat IPs",
+                          f"[bold red]{high_threat_cnt}[/bold red]" if high_threat_cnt > 0 else f"[green]{high_threat_cnt}[/green]")
+    summary_table.add_row("Medium Threat IPs",
+                          f"[yellow]{medium_threat_cnt}[/yellow]" if medium_threat_cnt > 0 else f"[green]{medium_threat_cnt}[/green]")
 
     console.print()
     console.print(Panel(summary_table, title="Scan Summary", title_align="left", style="blue"))
@@ -202,8 +210,9 @@ def show_scan_progress():
     )
     return progress
 
+
 def display_rich_network_info(network_data):
-    if  not RICH_AVAILABLE or not network_data:
+    if not RICH_AVAILABLE or not network_data:
         return
 
     table = Table(title="Network Connections", box=box.ROUNDED)
@@ -228,11 +237,12 @@ def display_rich_network_info(network_data):
     if len(network_data) > 15:
         console.print(f"... and {len(network_data) - 15} more connections")
 
+
 def display_results(results):
     """Display results in a table."""
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("NETWORK THREAT ANALYSIS RESULTS")
-    print("="*80)
+    print("=" * 80)
 
     malicious_count = 0
     high_threat_count = 0
@@ -273,13 +283,13 @@ def display_results(results):
                 print(f"   FireHOL Blocklist: {details['firehol'].get('blocklist', 'Unknown')}")
 
     # Summary
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("SUMMARY:")
     print(f"Total IPs Checked: {len(results)}")
     print(f"Malicious IPs Found: {malicious_count}")
     print(f"High Threat IPs: {high_threat_count}")
     print(f"Medium Threat IPs: {medium_threat_count}")
-    print("="*80)
+    print("=" * 80)
 
     if malicious_count == 0:
         print("\nNo malicious IPs detected in current network connections.")
@@ -292,5 +302,3 @@ def display_results(results):
             print("   - Investigate high threat IPs immediately")
             print("   - Consider blocking these IPs in your firewall")
             print("   - Check for any unauthorized network activity")
-
-

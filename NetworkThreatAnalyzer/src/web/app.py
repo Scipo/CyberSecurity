@@ -18,7 +18,7 @@ app.config['SECRET_KEY'] = 'network-threat-analyzer-secret-key'
 
 # Global variables for scan results
 scan_results = {}
-scan_history = {}
+scan_history = []
 
 
 # Scanner wrapper for web interface
@@ -48,6 +48,7 @@ class WebScanner:
             return {'error': str(e)}
 
 
+# Global web instance
 web_scanner = WebScanner()
 
 
@@ -62,3 +63,32 @@ def index():
     )
 
 
+@app.route('/api/scan', methods=['POST'])
+# API endpoint to run a network scan
+def api_scan():
+    global scan_results, scan_history
+
+    try:
+        results = web_scanner.run_scan()
+        if 'error' in results:
+            return jsonify({'success': False, 'error': results['error']})
+
+        scan_id = datetime.now().strftime('%Y%m%d_%H%M%S')
+        scan_results[scan_id] = results
+        scan_history.append({
+            'id': scan_id,
+            'timestamp': results['timestamp'],
+            'total_ips': len(results.get('threat_results', {})),
+            'malicious_ips': sum(1 for r in results.get('threat_results', {}).values() if r.get('is_malicious', False))
+        })
+
+        # TO DO Check more than 10 records in the future
+        scan_history = scan_history[-10:]
+
+        return jsonify({
+            'success': True,
+            'scan_id': scan_id,
+            'results': results
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})

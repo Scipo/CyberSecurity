@@ -211,6 +211,7 @@ def show_scan_progress():
     return progress
 
 
+# Display network info using Rich
 def display_rich_network_info(network_data):
     if not RICH_AVAILABLE or not network_data:
         return
@@ -224,13 +225,16 @@ def display_rich_network_info(network_data):
 
     for ip, connection in list(network_data.items())[:15]:
         for con in connection[:2]:
-            table.add_row(
+            row_data = [
                 ip,
                 con.get('protocol', 'unknown'),
                 con.get('local_address', 'unknown'),
                 con.get('state', 'unknown'),
                 con.get('source', 'unknown')
-            )
+            ]
+            # Convert every value to string
+            row_data = [str(item) if item is not None else 'unknown' for item in row_data]
+            table.add_row(*row_data)
     console.print()
     console.print(table)
 

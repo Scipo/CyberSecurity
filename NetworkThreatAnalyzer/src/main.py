@@ -95,55 +95,185 @@ def test_api_connection():
          print(8*'*')
 
 
+# def run_network_scan():
+#     logger = setup_logging(False)
+#
+#     try:
+#         api_key = get_api_key()
+#         if not api_key:
+#             print("\nWarning: No AbuseIPDB API key configured.")
+#             print("Some threat intelligence features will be limited.")
+#             print("You can configure it from the main menu (Option 2).")
+#             proceed = input("Continue anyway? (y/N): ").strip().lower()
+#             if proceed != 'y':
+#                 return
+#
+#         # Init components
+#         scanner = NetworkScanner(logger)
+#         threat_intel = ThreatIntelligence(logger, api_key)
+#
+#         # Gather network information
+#         print("\nGathering network connection information...")
+#         network_data = scanner.get_network_info()
+#
+#         if not network_data:
+#             print("No network data collected. Please check your network connections.")
+#             return
+#
+#         # Extract unique public IPs
+#         public_ips = scanner.extract_public_ips(network_data)
+#         print(f"Found {len(public_ips)} unique public IPs to analyze")
+#
+#         print("Checking IPs against threat intelligence feeds...")
+#         threat_results = threat_intel.check_ips(public_ips)
+#
+#         # Result Display
+#         display_results(threat_results)
+#
+#         # save results
+#         output_file = f"threat_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+#         save_results(threat_results, output_file)
+#         print(f"Results saved to: {output_file}")
+#
+#         # Summary
+#         malicious_count = sum(1 for result in threat_results.values() if result.get('is_malicious', False))
+#         print(f"\nAnalysis complete: {malicious_count} malicious IPs found out of {len(public_ips)} total")
+#     except KeyboardInterrupt:
+#         print("Scan interrupted by user.")
+#     except Exception as e:
+#         print(f"Application error: {str(e)}")
+#     input("Press Enter to continue.....")
+
+
 def run_network_scan():
+    """Run the main network scanning and threat analysis with new features."""
+    from config.settings import load_config, enable_rich_output, use_async_mode, should_use_cache
+    from utils import setup_logging, save_results, display_rich_results, display_rich_network_info, \
+        show_scan_progress
+    from rich.console import Console
+
+    config = load_config()
     logger = setup_logging(False)
+    use_rich = enable_rich_output()
+    try:
+        RICH_AVAILABLE = True
+    except ImportError:
+        RICH_AVAILABLE = False
+    console = Console() if RICH_AVAILABLE else None
 
     try:
+
+        logger.info("Starting Network Threat Analyzer")
+
+        # Load configuration
         api_key = get_api_key()
         if not api_key:
-            print("\nWarning: No AbuseIPDB API key configured.")
-            print("Some threat intelligence features will be limited.")
-            print("You can configure it from the main menu (Option 2).")
-            proceed = input("Continue anyway? (y/N): ").strip().lower()
+            if use_rich and console:
+                console.print("\n [yellow]Warning: No AbuseIPDB API key configured.[/yellow]")
+                console.print("Some threat intelligence features will be limited.")
+                console.print("You can configure it from the main menu (Option 2).")
+                proceed = input("Continue anyway? (y/N): ").strip().lower()
+            else:
+                print("\n Warning: No AbuseIPDB API key configured.")
+                print("Some threat intelligence features will be limited.")
+                print("You can configure it from the main menu (Option 2).")
+                proceed = input("Continue anyway? (y/N): ").strip().lower()
+
             if proceed != 'y':
                 return
 
-        # Init components
+        # Initialize components
         scanner = NetworkScanner(logger)
-        threat_intel = ThreatIntelligence(logger, api_key)
+        threat_intel = ThreatIntelligence(logger, api_key, use_cache=should_use_cache())
 
         # Gather network information
-        print("\nGathering network connection information...")
+        if use_rich and console:
+            console.print("\n[cyan]Gathering network connection information...[/cyan]")
+        else:
+            print("\nGathering network connection information...")
+
         network_data = scanner.get_network_info()
 
         if not network_data:
-            print("No network data collected. Please check your network connections.")
+            if use_rich and console:
+                console.print(" [red]No network data collected. Please check your network connections.[/red]")
+            else:
+                print(" No network data collected. Please check your network connections.")
             return
+
+        # Display network information
+        if use_rich:
+            display_rich_network_info(network_data)
 
         # Extract unique public IPs
         public_ips = scanner.extract_public_ips(network_data)
-        print(f"Found {len(public_ips)} unique public IPs to analyze")
 
-        print("Checking IPs against threat intelligence feeds...")
-        threat_results = threat_intel.check_ips(public_ips)
+        if use_rich and console:
+            console.print(f"[cyan]Found {len(public_ips)} unique public IPs to analyze[/cyan]")
+        else:
+            print(f"Found {len(public_ips)} unique public IPs to analyze")
 
-        # Result Display
-        display_results(threat_results)
+        if not public_ips:
+            if use_rich and console:
+                console.print(
+                    "[yellow]No public IPs found to analyze. Only private network connections detected.[/yellow]")
+            else:
+                print("No public IPs found to analyze. Only private network connections detected.")
+            return
 
-        # save results
+        # Check IPs against threat intelligence
+        if use_rich and console:
+            console.print("[cyan]Checking IPs against threat intelligence feeds...[/cyan]")
+
+            # Show progress bar
+            progress = show_scan_progress()
+            with progress:
+                task = progress.add_task("Checking IPs...", total=len(public_ips))
+                threat_results = threat_intel.check_ips(public_ips)
+                progress.update(task, completed=len(public_ips))
+        else:
+            print("Checking IPs against threat intelligence feeds...")
+            threat_results = threat_intel.check_ips(public_ips)
+
+        # Display results
+        if use_rich:
+            display_rich_results(threat_results)
+        else:
+            display_results(threat_results)
+
+        # Save results
         output_file = f"threat_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
         save_results(threat_results, output_file)
-        print(f"Results saved to: {output_file}")
+
+        if use_rich and console:
+            console.print(f"[green]Results saved to: {output_file}[/green]")
+        else:
+            print(f"Results saved to: {output_file}")
 
         # Summary
         malicious_count = sum(1 for result in threat_results.values() if result.get('is_malicious', False))
-        print(f"\nAnalysis complete: {malicious_count} malicious IPs found out of {len(public_ips)} total")
-    except KeyboardInterrupt:
-        print("Scan interrupted by user.")
-    except Exception as e:
-        print(f"Application error: {str(e)}")
-    input("Press Enter to continue.....")
+        if use_rich and console:
+            if malicious_count > 0:
+                console.print(
+                    f"\n[red]Analysis complete: {malicious_count} malicious IPs found out of {len(public_ips)} total[/red]")
+            else:
+                console.print(
+                    f"\n[green]Analysis complete: {malicious_count} malicious IPs found out of {len(public_ips)} total[/green]")
+        else:
+            print(f"\nAnalysis complete: {malicious_count} malicious IPs found out of {len(public_ips)} total")
 
+    except KeyboardInterrupt:
+        if use_rich and console:
+            console.print("\n\n[yellow]Scan interrupted by user.[/yellow]")
+        else:
+            print("\n\n Scan interrupted by user.")
+    except Exception as e:
+        if use_rich and console:
+            console.print(f" [red]Application error: {str(e)}[/red]")
+        else:
+            print(f" Application error: {str(e)}")
+
+    input("\nPress Enter to continue...")
 
 def main_menu():
     while True:
@@ -162,7 +292,6 @@ def main_menu():
             break
         else:
             print("Invalid choice. Please enter a number between 1-5.")
-
 
 def main():
     """ Main entry point """

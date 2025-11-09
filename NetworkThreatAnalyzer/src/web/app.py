@@ -92,3 +92,96 @@ def api_scan():
         })
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api.results/<scan_id>')
+# Get specific scan results
+def get_results(scan_id):
+    if scan_id in scan_results:
+        return jsonify(scan_results[scan_id])
+    else:
+        return jsonify({'error': 'Scan not found'}), 404
+
+
+@app.route('/api/history')
+# Get scan history
+def get_history():
+    return jsonify(scan_history)
+
+
+@app.route('/api/export/<scan_id>')
+# Export Scan results in Json
+def export_results(scan_id):
+    if scan_id in scan_results:
+        filename = f"threat_scan_{scan_id}.json"
+        filepath = os.path.join('/tmp', filename)
+
+        with open(filepath, 'w') as f:
+            json.dump(scan_results[scan_id], f, indent=2)
+        return send_file(filepath, as_attachment=True, download_name=filename)
+    else:
+        return jsonify({'error': 'Scan not found'}), 404
+
+
+@app.route('/api/config', methods=['GET', 'POST'])
+# Get update configuration
+def handle_config():
+    if request.method == 'GET':
+        config = load_config()
+        if config.get('ABUSEIPDB_API_KEY'):
+            config['ABUSEIPDB_API_KEY'] = '***' + config['ABUSEIPDB_API_KEY'][-4:]
+        return jsonify(config)
+    else:  # POST
+        try:
+            new_config = request.json
+            from src.config.settings import save_config
+            save_config(new_config)
+            return jsonify({'success': True})
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/network_info')
+# Get current network information without full scan
+def get_network_info():
+    try:
+        scanner = NetworkScanner(setup_logging(False))
+        network_data = scanner.get_network_info()
+        public_ips = scanner.extract_public_ips(network_data)
+
+        return jsonify(
+            {
+                'total_connections': len(network_data),
+                'public_ips_count': len(public_ips),
+                'sample_connections': dict(list(network_data.items())[:5])  # First 5
+            }
+        )
+    except Exception as e:
+        return jsonify({'error': str(e)})
+
+
+@app.route('/api/test_api')
+# Test AbuseIDDB API connection
+def test_api():
+    try:
+        threat_intel = ThreatIntelligence(setup_logging(False), get_api_key())
+        test_ip = "8.8.8.8"
+        result = threat_intel._check_abuseipdb_sync(test_ip)
+
+        if 'error' in result:
+            return jsonify({'success': False, 'error': result['error']})
+        else:
+            return jsonify({'success': True, 'result': result})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+# Run web interface
+def run_web_interface(host='127.0.0.1', port=5000, debug=False):
+    print(f"🚀 Starting Network Threat Analyzer Web Interface...")
+    print(f"📡 Access at: https://{host}:{port}")
+    print(f"🛑 Press Ctrl+C to stop")
+    app.run(host=host, port=port, debug=debug, threaded=True)
+
+if __name__ == '__main__':
+    run_web_interface()

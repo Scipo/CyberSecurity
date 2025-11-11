@@ -111,4 +111,115 @@
             resultsSection.style.display = 'block';
             showTab('results');
         }
-        // TO_DO
+
+    async function loadScanHistory() {
+            try {
+                const response = await fetch('/api/history');
+                const history = await response.json();
+
+                const historyList = document.getElementById('historyList');
+                historyList.innerHTML = '';
+
+                if (history.length === 0) {
+                    historyList.innerHTML = '<p style="text-align: center; color: #6b7280;">No scan history available.</p>';
+                    return;
+                }
+
+                history.reverse().forEach(scan => {
+                    const historyItem = document.createElement('div');
+                    historyItem.className = 'history-item';
+                    historyItem.onclick = () => loadScanResult(scan.id);
+
+                    historyItem.innerHTML = `
+                        <div style="font-weight: bold;">Scan ${scan.id}</div>
+                        <div style="font-size: 0.9em; color: #6b7280;">
+                            ${new Date(scan.timestamp).toLocaleString()} |
+                            IPs: ${scan.total_ips} |
+                            Threats: <span style="color: ${scan.malicious_ips > 0 ? '#dc2626' : '#059669'}">${scan.malicious_ips}</span>
+                        </div>
+                    `;
+
+                    historyList.appendChild(historyItem);
+                });
+            } catch (error) {
+                console.error('Error loading history:', error);
+            }
+        }
+
+        async function loadScanResult(scanId) {
+            try {
+                const response = await fetch(`/api/results/${scanId}`);
+                const results = await response.json();
+
+                if (!results.error) {
+                    currentResults = results;
+                    displayResults(results);
+                }
+            } catch (error) {
+                console.error('Error loading scan result:', error);
+            }
+        }
+
+        async function testAPI() {
+            const statusDiv = document.getElementById('apiStatus');
+            statusDiv.style.display = 'block';
+            statusDiv.innerHTML = '<div style="color: #d97706;">Testing API connection...</div>';
+
+            try {
+                const response = await fetch('/api/test_api');
+                const data = await response.json();
+
+                if (data.success) {
+                    statusDiv.innerHTML = `<div style="color: #059669;">✅ API connection successful! Tested IP: 8.8.8.8</div>`;
+                } else {
+                    statusDiv.innerHTML = `<div style="color: #dc2626;">❌ API test failed: ${data.error}</div>`;
+                }
+            } catch (error) {
+                statusDiv.innerHTML = `<div style="color: #dc2626;">❌ API test failed: ${error.message}</div>`;
+            }
+        }
+
+        async function loadConfig() {
+            try {
+                const response = await fetch('/api/config');
+                const config = await response.json();
+
+                // Don't pre-fill API key for security
+                document.getElementById('apiKey').value = '';
+            } catch (error) {
+                console.error('Error loading config:', error);
+            }
+        }
+
+        async function saveConfig() {
+            const apiKey = document.getElementById('apiKey').value;
+            const statusDiv = document.getElementById('configStatus');
+
+            if (!apiKey) {
+                statusDiv.innerHTML = '<div style="color: #dc2626;">Please enter an API key</div>';
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/config', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        'ABUSEIPDB_API_KEY': apiKey
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    statusDiv.innerHTML = '<div style="color: #059669;">Configuration saved successfully!</div>';
+                    document.getElementById('apiKey').value = '';
+                } else {
+                    statusDiv.innerHTML = `<div style="color: #dc2626;">Failed to save configuration: ${data.error}</div>`;
+                }
+            } catch (error) {
+                statusDiv.innerHTML = `<div style="color: #dc2626;">Error saving configuration: ${error.message}</div>`;
+            }
+        }

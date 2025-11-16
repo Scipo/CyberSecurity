@@ -8,10 +8,12 @@ import sys
 import json
 from datetime import datetime
 
-from network_scanner import NetworkScanner
-from threat_intel import ThreatIntelligence
-from utils import setup_logging, save_results, display_results
-from config.settings import load_config, save_config, get_api_key
+from src.network_scanner import NetworkScanner
+from src.web.app import run_web_interface
+from src.threat_intel import ThreatIntelligence
+from src.utils import setup_logging, save_results, display_results
+from src.config.settings import load_config, save_config, get_api_key
+from src.reporting.generator import ReportGenerator
 
 
 def display_menu():
@@ -23,13 +25,15 @@ def display_menu():
     print("2. Configure AbuseIPDB API Key")
     print("3. View Current Configuration")
     print("4. Test API Connection")
-    print("5. Exit")
+    print("5. Web Interface")
+    print("6. Generate Advanced Report")
+    print("7. Exit")
     print("=" * 50)
 
 
 def get_menu_choice():
     try:
-        choice = input("\nEnter your choice (1-5): ").strip()
+        choice = input("\nEnter your choice (1-7): ").strip()
         return int(choice) if choice.isdigit() else None
     except (ValueError, EOFError):
         return None
@@ -147,8 +151,8 @@ def test_api_connection():
 
 def run_network_scan():
     """Run the main network scanning and threat analysis with new features."""
-    from config.settings import load_config, enable_rich_output, use_async_mode, should_use_cache
-    from utils import setup_logging, save_results, display_rich_results, display_rich_network_info, \
+    from src.config.settings import load_config, enable_rich_output, use_async_mode, should_use_cache
+    from src.utils import setup_logging, save_results, display_rich_results, display_rich_network_info, \
         show_scan_progress
     from rich.console import Console
 
@@ -275,6 +279,22 @@ def run_network_scan():
 
     input("\nPress Enter to continue...")
 
+# Start web interface
+def start_web_interface():
+    from src.config.settings import  get_setting
+    host = get_setting('WEB_HOST', '127.0.0.1')
+    port = get_setting('WEB_PORT', 5000)
+    debug = get_setting('WEB_DEBUG', False)
+
+    run_web_interface(host=host, port=port, debug=debug)
+
+# Generate advanced report
+def generate_advanced_report():
+    print("\nAdvanced Reporting")
+    print("This feature will be available after running a scan.")
+    print("Run a scan first, then use the web interface for advanced reports.")
+    input("\nPress Enter to continue...")
+
 def main_menu():
     while True:
         display_menu()
@@ -288,7 +308,11 @@ def main_menu():
         elif choice == 4:
             test_api_connection()
         elif choice == 5:
-            print("\nExit!!!")
+            start_web_interface()
+        elif choice == 6:
+            generate_advanced_report()
+        elif choice == 7:
+            print("Exit")
             break
         else:
             print("Invalid choice. Please enter a number between 1-5.")

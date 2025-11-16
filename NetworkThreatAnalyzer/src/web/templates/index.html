@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en" xmlns="http://www.w3.org/1999/html">
 <head>
-    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Network Threat Analyzer</title>
@@ -92,6 +92,6 @@
             </div>
         </div>
     </div>
-<script src="script/setup.js"></script>
+<script src="/static/script/setup.js"></script>
 </body>
 </html>

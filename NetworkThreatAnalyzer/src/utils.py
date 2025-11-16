@@ -59,7 +59,7 @@ def save_results(results, filename):
         # If the filename is not provided during the direct scan -s
         if filename is None:
             filename = f"scan_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-            print(f"Filename provided, using: {filename}")
+            print(f"Filename provided automatically, using: {filename}")
         output = {
             'timestamp': datetime.now().isoformat(),
             'summary': {

@@ -20,5 +20,5 @@ cd NetworkThreatAnalyzer
 
 ## Usage
 To stat the application
-- python src/main.py
+- python3 main.py
 

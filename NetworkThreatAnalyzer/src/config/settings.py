@@ -25,6 +25,39 @@ DEFAULT_CONFIG = {
     'SCAN_SCHEDULE': 'daily'
 }
 
+DEFAULT_CONFIG.update({
+    # Web interface settings
+    'WEB_HOST': '127.0.0.1',
+    'WEB_PORT': 5000,
+    'WEB_DEBUG': False,
+
+    # Reporting settings
+    'REPORT_FORMATS': ['json', 'html', 'csv'],
+    'AUTO_GENERATE_REPORTS': True,
+    'REPORT_OUTPUT_DIR': 'reports',
+
+    # Notification settings
+    'ENABLE_NOTIFICATIONS': False,
+    'NOTIFICATION_EMAILS': [],
+    'SLACK_WEBHOOK_URL': '',
+    'WEBHOOK_URL': '',
+
+    # SMTP settings for email notifications
+    'SMTP': {
+        'server': '',
+        'port': 587,
+        'username': '',
+        'password': '',
+        'tls': True
+    },
+
+    # Alert thresholds
+    'ALERT_THRESHOLD_HIGH': 75,
+    'ALERT_THRESHOLD_MEDIUM': 25,
+    'ALERT_ON_HIGH_THREAT': True,
+    'ALERT_ON_MEDIUM_THREAT': False
+})
+
 def get_config_dir():
     """Get the configuration directory path."""
     config_dir = Path.home() / '.NetworkThreatAnalyzer'

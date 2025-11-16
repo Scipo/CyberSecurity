@@ -56,6 +56,10 @@ def setup_logging(verbose=False):
 def save_results(results, filename):
     """Save threat analysis results to JSON file."""
     try:
+        # If the filename is not provided during the direct scan -s
+        if filename is None:
+            filename = f"scan_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+            print(f"Filename provided, using: {filename}")
         output = {
             'timestamp': datetime.now().isoformat(),
             'summary': {

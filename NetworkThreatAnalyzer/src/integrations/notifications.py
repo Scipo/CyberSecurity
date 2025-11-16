@@ -193,3 +193,92 @@ class NotificationManager:
     </body>
     </html>
             """
+
+    # Create HTML table of threats for email
+    def _create_threats_table_html(self, results):
+        threat_results = results.get('threat_results', {})
+        high_threats = [ip for ip, data in threat_results.items()
+                        if data.get('is_malicious') and data.get('threat_level') == 'high']
+
+        if not high_threats:
+            return "<p>No high threat IPs to display.</p>"
+
+        table_rows = ""
+        for ip in high_threats:
+            data = threat_results[ip]
+            abuse_data = data.get('details', {}).get('abuseipdb', {})
+            table_rows += f"""
+                  <tr>
+                      <td style="padding: 8px; border-bottom: 1px solid #ddd;">{ip}</td>
+                      <td style="padding: 8px; border-bottom: 1px solid #ddd;">{abuse_data.get('abuseConfidenceScore', 0)}%</td>
+                      <td style="padding: 8px; border-bottom: 1px solid #ddd;">{abuse_data.get('totalReports', 0)}</td>
+                      <td style="padding: 8px; border-bottom: 1px solid #ddd;">{abuse_data.get('isp', 'Unknown')}</td>
+                  </tr>
+                  """
+
+        return f"""
+         <div style="margin: 15px 0;">
+        <h4>High Threat IPs:</h4>
+        <table style="width: 100%; border-collapse: collapse;">
+            <thead>
+                <tr style="background: #dc2626; color: white;">
+                    <th style="padding: 10px; text-align: left;">IP Address</th>
+                    <th style="padding: 10px; text-align: left;">Abuse Score</th>
+                    <th style="padding: 10px; text-align: left;">Reports</th>
+                    <th style="padding: 10px; text-align: left;">ISP</th>
+                </tr>
+            </thead>
+            <tbody>
+                {table_rows}
+            </tbody>
+        </table>
+        </div>
+        """
+
+    # Slack payload summary
+    def _create_slack_payload(self, summary):
+        color = "#dc2626" if summary['high_threats'] > 0 else "#d97706"
+
+        return {
+            "attachments": [
+                {
+                    "color": color,
+                    "title": "Network Threat Alert",
+                    "fields": [
+                        {
+                            "title": "Total IPs Checked",
+                            "value": str(summary['total_ips']),
+                            "short": True
+                        },
+                        {
+                            "title": "Malicious IPs",
+                            "value": str(summary['malicious_count']),
+                            "short": True
+                        },
+                        {
+                            "title": "High Threats",
+                            "value": str(summary['high_threats']),
+                            "short": True
+                        },
+                        {
+                            "title": "Medium Threats",
+                            "value": str(summary['medium_threats']),
+                            "short": True
+                        }
+                    ],
+                    "ts": datetime.now().timestamp(),
+                    "footer": "Network Threat Analyzer"
+                }
+            ]
+        }
+
+    # Generate summary for notification
+    def _generate_notification_summary(self, results):
+        threat_results = results.get('threat_results', {})
+        return {
+            'total_ips': len(threat_results),
+            'malicious_count': sum(1 for r in threat_results.values() if r.get('is_malicious', False)),
+            'high_threats': sum(1 for r in threat_results.values() if r.get('threat_level') == 'high'),
+            'medium_threats': sum(1 for r in threat_results.values() if r.get('threat_level') == 'medium'),
+            'timestamp': datetime.now().isoformat()
+        }

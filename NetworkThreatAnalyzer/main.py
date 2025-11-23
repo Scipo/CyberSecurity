@@ -9,11 +9,12 @@ import json
 from datetime import datetime
 
 from src.network_scanner import NetworkScanner
-from src.web.app import run_web_interface
+from src.web.app import run_web_interface, scan_results
 from src.threat_intel import ThreatIntelligence
 from src.utils import setup_logging, save_results, display_results
 from src.config.settings import load_config, save_config, get_api_key
-from src.reporting.generator import ReportGenerator
+from src.reporting.generator import ReportGenerator, HAS_WEASYPRINT
+from src.integrations.notifications import NotificationManager
 
 
 def display_menu():
@@ -68,6 +69,14 @@ def view_configuration():
         print(f"AbuseIPDB API Key: {masked_key}")
     else:
         print("AbuseIPDB API Key: Not configured")
+
+    # Report settings
+    report_formats = config.get('REPORT_FORMATS', ['json'])
+    print(f"Report Formats: {', '.join(report_formats)}")
+    print(f"Auto-generated Reports: {config.get('AUTO_GENERATE_REPORTS', True)}")
+
+    # Notification settings
+    print(f"Notifications Enabled: {config.get('ENABLE_NOTIFICATIONS', False)}")
     print(f"Config File: {os.path.join(os.path.expanduser('~'), '.NetworkThreatAnalyzer', 'config.json')}")
 
     input("\nPress Enter to continue...")
@@ -254,6 +263,14 @@ def run_network_scan():
         else:
             print(f"Results saved to: {output_file}")
 
+        # Auto-generate reports if enabled
+        if config.get('AUTO_GENERATE_REPORTS', True):
+            generate_reports_after_scan(scan_results)
+
+        # Send notifications if enabled
+        if config.get('ENABLE_NOTIFICATIONS', False):
+            send_notifications_after_scan(scan_results)
+
         # Summary
         malicious_count = sum(1 for result in threat_results.values() if result.get('is_malicious', False))
         if use_rich and console:
@@ -279,6 +296,73 @@ def run_network_scan():
 
     input("\nPress Enter to continue...")
 
+# Automatically generate reports after scan
+def generate_reports_after_scan(scan_repots):
+    config = load_config()
+    report_formats = config.get('REPORT_FORMATS', ['json'])
+    output_dir = config.get('REPORT_OUTPUT_DIR', 'reports')
+
+    print(f"\nGenerating reports in formats: {', '.join(report_formats)}")
+    generator = ReportGenerator(output_dir=output_dir)
+    generated_reports = []
+
+    try:
+        for rep_f in report_formats:
+            try:
+                if rep_f == 'html':
+                    report_path = generator.generate_html_report(scan_results)
+                    generated_reports.append(('HTML', report_path))
+                elif rep_f == 'json':
+                    report_path = generator.generate_json_report(scan_results)
+                    generated_reports.append(('JSON', report_path))
+                elif rep_f == 'csv':
+                    report_path = generator.generate_csv_report(scan_results)
+                    generated_reports.append(('CSV', report_path))
+                elif rep_f == 'pdf' and HAS_WEASYPRINT:
+                    report_path = generator.generate_pdf_report(scan_results)
+                    generated_reports.append(('PDF', report_path))
+            except Exception as e:
+                print(f"Failed to generate {rep_f.upper()} report: {str(e)}")
+
+            # Display reports
+            if generated_reports:
+                print("Generated Reports:")
+                for rep_type, rep_path in generated_reports:
+                    print(f"{rep_type} : {rep_path}")
+            else:
+                print("No reports were generated")
+    except Exception as e:
+        print(f"Report generation failed: {str(e)}")
+
+# notifications after a scan if threats are found
+def send_notifications_after_scan(scan_result):
+    config = load_config()
+    threat_results = scan_result.get('threat_results', {})
+    malicious_count = sum(1 for r in threat_results.values() if r.get('is_malicious', False))
+
+    # Only send notifications if threats are found and alerts are enabled
+    if malicious_count > 0:
+        alert_on_high = config.get('ALERT_ON_HIGH_THREAT', True)
+        alert_on_medium = config.get('ALERT_ON_MEDIUM_THREAT', False)
+
+        high_threats = sum(1 for r in threat_results.values()
+                           if r.get('is_malicious') and r.get('threat_level') == 'high')
+        medium_threats = sum(1 for r in threat_results.values()
+                             if r.get('is_malicious') and r.get('threat_level') == 'medium')
+
+        should_alert = (alert_on_high and high_threats > 0) or (alert_on_medium and medium_threats > 0)
+
+        if should_alert:
+            print("Sending notifications...")
+            notifier = NotificationManager()
+            notifications_sent, errors = notifier.send_all_notifications(scan_results)
+
+            if notifications_sent:
+                print(f"Notifications sent: {', '.join(notifications_sent)}")
+            if errors:
+                print(f"Notification errors: {', '.join(errors)}")
+
+
 # Start web interface
 def start_web_interface():
     from src.config.settings import  get_setting
@@ -290,7 +374,8 @@ def start_web_interface():
 
 # Generate advanced report
 def generate_advanced_report():
-    print("\nAdvanced Reporting")
+
+    print("\nAdvanced ReportingTO Here")
     print("This feature will be available after running a scan.")
     print("Run a scan first, then use the web interface for advanced reports.")
     input("\nPress Enter to continue...")

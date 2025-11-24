@@ -374,10 +374,8 @@ def start_web_interface():
 
 # Generate advanced report
 def generate_advanced_report():
-
-    print("\nAdvanced ReportingTO Here")
-    print("This feature will be available after running a scan.")
-    print("Run a scan first, then use the web interface for advanced reports.")
+    print("\n Advanced report")
+    print("="*40)
     input("\nPress Enter to continue...")
 
 def main_menu():

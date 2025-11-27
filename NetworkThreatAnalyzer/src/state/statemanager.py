@@ -57,6 +57,7 @@ class StateManager:
         history.append(scan_data)
         self._state['scan_history'] = history
         self._save_state()
+
     # Get scan history
     def get_scan_history(self):
         return self._state.get('scan_history', [])
@@ -73,6 +74,7 @@ class StateManager:
     def clear_history(self):
         self._state['scan_history'] = []
         self._save_state()
+
     # set application settings
     def set_settings(self, key, val):
         if 'application_settings' not in self._state:
@@ -88,5 +90,3 @@ class StateManager:
 
 # Global state manager
 state_manager = StateManager()
-
-

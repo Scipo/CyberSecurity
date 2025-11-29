@@ -7,6 +7,7 @@ import os
 import sys
 import json
 from datetime import datetime
+from traceback import print_tb
 
 from src.network_scanner import NetworkScanner
 from src.web.app import run_web_interface, scan_results
@@ -15,6 +16,7 @@ from src.utils import setup_logging, save_results, display_results
 from src.config.settings import load_config, save_config, get_api_key
 from src.reporting.generator import ReportGenerator, HAS_WEASYPRINT
 from src.integrations.notifications import NotificationManager
+from src.state.statemanager import state_manager
 
 
 def display_menu():
@@ -90,10 +92,10 @@ def test_api_connection():
         input("\nPress Enter to continue...")
         return
     threat_intel = ThreatIntelligence(setup_logging(False), api_key)
-    test_ip = ["109.205.213.30","34.92.247.119 ", "8.8.8.8", "128.14.236.128"]
+    test_ip = ["109.205.213.30", "34.92.247.119 ", "8.8.8.8", "128.14.236.128"]
     for ip in test_ip:
-         print(f"Testing with IP: {ip}")
-         try:
+        print(f"Testing with IP: {ip}")
+        try:
             result = threat_intel._check_abuseipdb_sync(ip)
             if 'error' in result:
                 print(f"API Test Failed: {result['error']}")
@@ -103,9 +105,9 @@ def test_api_connection():
                 print(f"Total Reports: {result.get('totalReports', 0)}")
                 print(f"ISP: {result.get('isp', 'Unknown')}")
                 print(f"Country: {result.get('countryCode', 'Unknown')}")
-         except Exception as e:
+        except Exception as e:
             print(f"API Test Failed: {str(e)}")
-         print(8*'*')
+        print(8 * '*')
 
 
 # def run_network_scan():
@@ -296,6 +298,7 @@ def run_network_scan():
 
     input("\nPress Enter to continue...")
 
+
 # Automatically generate reports after scan
 def generate_reports_after_scan(scan_repots):
     config = load_config()
@@ -334,6 +337,7 @@ def generate_reports_after_scan(scan_repots):
     except Exception as e:
         print(f"Report generation failed: {str(e)}")
 
+
 # notifications after a scan if threats are found
 def send_notifications_after_scan(scan_result):
     config = load_config()
@@ -365,18 +369,225 @@ def send_notifications_after_scan(scan_result):
 
 # Start web interface
 def start_web_interface():
-    from src.config.settings import  get_setting
+    from src.config.settings import get_setting
     host = get_setting('WEB_HOST', '127.0.0.1')
     port = get_setting('WEB_PORT', 5000)
     debug = get_setting('WEB_DEBUG', False)
 
     run_web_interface(host=host, port=port, debug=debug)
 
+
 # Generate advanced report
 def generate_advanced_report():
-    print("\n Advanced report")
-    print("="*40)
+    print("Advanced report")
+    print("=" * 40)
+    # Get last scan results from state manager
+    last_scan_results = state_manager.get_last_scan_result()
+
+    if last_scan_results is None:
+        print("No recent scan results found.")
+        print("You need to run a scan first or load existing results.")
+        choice = input("Run a new scan now? (Y/N): ").strip().lower()
+
+        if choice == 'y':
+            run_network_scan()
+            # Get the update results after scan
+            if last_scan_results is None:
+                return
+        else:
+            # Option to load existing results from file
+            load_existing_results()
+            last_scan_results = state_manager.get_last_scan_result()
+            if last_scan_results is None:
+                return
+    # Show scan Info
+    scan_id = last_scan_results.get('id', 'unknown')
+    scan_time = last_scan_results.get('scan_metadata', {}).get('timestamp', 'unknown')
+    total_ips = len(last_scan_results.get('threat_results', {}))
+    malicious_ips = sum(1 for r in last_scan_results.get('threat_results', {}).values() if r.get('is_malicious', False))
+
+    print(f"Using scan from: {scan_time}")
+    print(f"Scan contains: {total_ips} IPs, {malicious_ips} malicious")
+
+    # Report format selection
+    print("Available Report Formats:")
+    print("1. HTML Report (Interactive)")
+    print("2. JSON Report (Detailed)")
+    print("3. CSV Report (Spreadsheet)")
+    print("4. PDF Report (Professional)")
+    print("5. All Formats")
+    print("6. Custom Selection")
+
+    try:
+        choice = input("\nSelect report format (1-6): ").strip()
+        format_choice = int(choice) if choice.isdigit() else 0
+    except ValueError:
+        format_choice = 0
+
+    formats_to_generate = []
+
+    if format_choice == 1:
+        formats_to_generate = ['html']
+    elif format_choice == 2:
+        formats_to_generate = ['json']
+    elif format_choice == 3:
+        formats_to_generate = ['csv']
+    elif format_choice == 4:
+        formats_to_generate = ['pdf']
+    elif format_choice == 5:
+        formats_to_generate = ['html', 'json', 'csv', 'pdf']
+    elif format_choice == 6:
+        print("Enter formats separated by commas (html,json,csv,pdf,executive):")
+        custom_formats = input("Formats: ").strip().lower().split(',')
+        formats_to_generate = [f.strip() for f in custom_formats if f.strip()]
+    else:
+        print("Invalid selection. Using defaults formats (html, json). ")
+        formats_to_generate = ['html', 'json']
+
+    # Out_put directory
+    output_dir = input("\nOutput directory (press Enter for 'reports'): ").strip()
+    if not output_dir:
+        output_dir = 'reports'
+
+    print(f"Generating {len(formats_to_generate)} reports(s)...")
+    generator = ReportGenerator(output_dir=output_dir)
+    generated_reports = []
+
+    for frm in formats_to_generate:
+        try:
+            if frm == 'html':
+                report_path = generator.generate_html_report(last_scan_results)
+                generated_reports.append(('HTML', report_path))
+                print(f"Generated HTML report: {report_path}")
+            elif frm == 'json':
+                report_path = generator.generate_json_report(last_scan_results)
+                generated_reports.append(('JSON', report_path))
+                print(f"Generated JSON report: {report_path}")
+            elif frm == 'csv':
+                report_path = generator.generate_csv_report(last_scan_results)
+                generated_reports.append(('CSV', report_path))
+                print(f"Generated CSV report: {report_path}")
+            elif frm == 'pdf':
+                try:
+                    from weasyprint import HTML
+                    report_path = generator.generate_pdf_report(last_scan_results)
+                    generated_reports.append(('PDF', report_path))
+                    print(f"Generated PDF report: {report_path}")
+                except ImportError:
+                    print("PDF generation requires WeasyPrint. Install with: pip install weasyprint")
+            else:
+                print(f"Unknown format: {format}")
+        except Exception as e:
+            print(f"Failed to generate {format} report: {str(e)}")
+
+    if generated_reports:
+        print(f"Successfully generated {len(generated_reports)} report(s):")
+        for report_type, report_path in generated_reports:
+            print(f" {report_type}:{report_path}")
+        # Open html if generated
+        html_reports = [path for type, path in generated_reports if type == 'HTML']
+        if html_reports and input("Open HTML report in browser? (Y/n): ").strip().lower() == 'y':
+            import webbrowser
+            webbrowser.open(f'file://{os.path.abspath(html_reports[0])}')
+        else:
+            print("No reports were generated")
+
     input("\nPress Enter to continue...")
+
+
+# View and manage scan history
+def view_scan_history():
+    history = state_manager.get_scan_history()
+
+    print("Scan History")
+    print("=" * 40)
+
+    if not history:
+        print("No scan history available")
+        print("Run a scan to build history")
+        print("Press Enter to continue...")
+    # Display History
+    print(f"Total scans in history: {len(history)}")
+    print("Recent Scans: ")
+    print("-" * 60)
+
+    for i, scan in enumerate(reversed(history[-10:]), 1):
+        scan_id = scan.get('id', 'unknown')
+        timestamp = scan.get('timestamp', 'unknown')
+        total_ips = scan.get('total_ips', 0)
+        malicious_ips = scan.get('malicious_ips', 0)
+        high_threats = scan.get('high_threats', 0)
+
+        print(f"{i}. {timestamp}")
+        print(f"   ID: {scan_id}")
+        print(f"   IPs: {total_ips} | Malicious: {malicious_ips} | High Threats: {high_threats}")
+
+        print()
+    # Options
+    print("Options: ")
+    print("1. Load a specific scan for reporting")
+    print("2. Clear history")
+    print("3. Back to main menu")
+
+    try:
+        choice = input("\nSelect of Options (1-3): ").strip()
+        options = int(choice) if choice.isdigit() else 0
+    except ValueError:
+        options = 0
+
+    if options == 1:
+        load_specific_scan()
+    elif options == 2:
+        clear_history_confirmation()
+    elif options == 3:
+        main_menu()
+
+
+# Load specific scan from history
+def load_specific_scan():
+    history = state_manager.get_scan_history()
+    if not history:
+        print("No scan history available.")
+        return
+
+    print("\nEnter the scan ID to load (or press Enter to cancel):")
+    scan_id = input("Scan ID: ").strip()
+
+    if not scan_id:
+        return
+
+    # Find scan ID
+    scan_data = state_manager.get_scan_by_id()
+    if scan_data:
+        last_scan = state_manager.get_last_scan_result()
+        if last_scan and last_scan.get('id') == scan_id:
+            print(f"Scan {scan_id} is already the current scan.")
+        else:
+            print(f"Full results for scan {scan_id} are not available.")
+            print("Only the most recent scan's full results are stored.")
+            print("Please run a new scan to generate full results.")
+    else:
+        print(f"Scan {scan_id} not found in history.")
+
+    input("\nPress Enter to continue...")
+
+
+# Confirm and clear history
+def clear_history_confirmation():
+    print("Clear Scan History")
+    print("This will remove all scan history entries.")
+    print("This action cannot be undone!")
+    confirm = input("Type 'DELETE' to confirm: ").strip()
+    if confirm == 'DELETE':
+        state_manager.clear_history()
+        print("Scan history cleared.")
+    else:
+        print("Clear cancelled.")
+
+    input("\nPress Enter to continue...")
+
+def load_existing_results():
+    pass
 
 def main_menu():
     while True:
@@ -399,6 +610,7 @@ def main_menu():
             break
         else:
             print("Invalid choice. Please enter a number between 1-5.")
+
 
 def main():
     """ Main entry point """

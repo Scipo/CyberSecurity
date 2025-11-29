@@ -33,7 +33,7 @@ DEFAULT_CONFIG.update({
 
     # Reporting settings
     'REPORT_FORMATS': ['json', 'html', 'csv'],
-    'AUTO_GENERATE_REPORTS': True,
+    'AUTO_GENERATE_REPORTS': False,
     'REPORT_OUTPUT_DIR': 'reports',
 
     # Notification settings

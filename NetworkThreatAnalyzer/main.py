@@ -10,7 +10,7 @@ from datetime import datetime
 from traceback import print_tb
 
 from src.network_scanner import NetworkScanner
-from src.web.app import run_web_interface, scan_results
+from src.web.app import run_web_interface
 from src.threat_intel import ThreatIntelligence
 from src.utils import setup_logging, save_results, display_results
 from src.config.settings import load_config, save_config, get_api_key
@@ -30,13 +30,14 @@ def display_menu():
     print("4. Test API Connection")
     print("5. Web Interface")
     print("6. Generate Advanced Report")
-    print("7. Exit")
+    print("7. View Scan History")
+    print("8. Exit")
     print("=" * 50)
 
 
 def get_menu_choice():
     try:
-        choice = input("\nEnter your choice (1-7): ").strip()
+        choice = input("\nEnter your choice (1-8): ").strip()
         return int(choice) if choice.isdigit() else None
     except (ValueError, EOFError):
         return None
@@ -250,6 +251,28 @@ def run_network_scan():
             print("Checking IPs against threat intelligence feeds...")
             threat_results = threat_intel.check_ips(public_ips)
 
+        scan_id = datetime.now().strftime('%Y%m%d_%H%M%S')
+        scan_results = {
+            'id': scan_id,
+            'network_data': network_data,
+            'threat_results': threat_results,
+            'scan_metadata': {
+                'timestamp': datetime.now().isoformat(),
+                'total_ips_scanned': len(public_ips),
+                'public_ips_count': len(public_ips),
+                'scanner_version': '1.0.0'
+            }
+        }
+        state_manager.set_last_scan_result(scan_results)
+        # Add to history
+        history_entry = {
+            'id': scan_id,
+            'timestamp': scan_results['scan_metadata']['timestamp'],
+            'total_ips': len(public_ips),
+            'malicious_ips': sum(1 for r in threat_results.values() if r.get('is_malicious', False)),
+            'high_threats': sum(1 for r in threat_results.values() if r.get('threat_level') == 'high')
+        }
+        state_manager.add_scan_results_to_history(history_entry)
         # Display results
         if use_rich:
             display_rich_results(threat_results)
@@ -266,7 +289,7 @@ def run_network_scan():
             print(f"Results saved to: {output_file}")
 
         # Auto-generate reports if enabled
-        if config.get('AUTO_GENERATE_REPORTS', True):
+        if config.get('AUTO_GENERATE_REPORTS', False):
             generate_reports_after_scan(scan_results)
 
         # Send notifications if enabled
@@ -300,7 +323,7 @@ def run_network_scan():
 
 
 # Automatically generate reports after scan
-def generate_reports_after_scan(scan_repots):
+def generate_reports_after_scan(scan_results):
     config = load_config()
     report_formats = config.get('REPORT_FORMATS', ['json'])
     output_dir = config.get('REPORT_OUTPUT_DIR', 'reports')
@@ -356,15 +379,15 @@ def send_notifications_after_scan(scan_result):
 
         should_alert = (alert_on_high and high_threats > 0) or (alert_on_medium and medium_threats > 0)
 
-        if should_alert:
-            print("Sending notifications...")
-            notifier = NotificationManager()
-            notifications_sent, errors = notifier.send_all_notifications(scan_results)
-
-            if notifications_sent:
-                print(f"Notifications sent: {', '.join(notifications_sent)}")
-            if errors:
-                print(f"Notification errors: {', '.join(errors)}")
+        # if should_alert:
+        #     print("Sending notifications...")
+        #     notifier = NotificationManager()
+        #     notifications_sent, errors = notifier.send_all_notifications(scan_results)
+        #
+        #     if notifications_sent:
+        #         print(f"Notifications sent: {', '.join(notifications_sent)}")
+        #     if errors:
+        #         print(f"Notification errors: {', '.join(errors)}")
 
 
 # Start web interface
@@ -373,8 +396,12 @@ def start_web_interface():
     host = get_setting('WEB_HOST', '127.0.0.1')
     port = get_setting('WEB_PORT', 5000)
     debug = get_setting('WEB_DEBUG', False)
-
-    run_web_interface(host=host, port=port, debug=debug)
+    try:
+        run_web_interface(host=host, port=port, debug=debug)
+    except KeyboardInterrupt:
+        print("Web interface stopped.")
+    except Exception as e:
+        print(f"Failed to start web interface: {str(e)}")
 
 
 # Generate advanced report
@@ -557,7 +584,7 @@ def load_specific_scan():
         return
 
     # Find scan ID
-    scan_data = state_manager.get_scan_by_id()
+    scan_data = state_manager.get_scan_by_id(scan_id)
     if scan_data:
         last_scan = state_manager.get_last_scan_result()
         if last_scan and last_scan.get('id') == scan_id:
@@ -586,8 +613,71 @@ def clear_history_confirmation():
 
     input("\nPress Enter to continue...")
 
+
+# Loading existing results
 def load_existing_results():
-    pass
+    print("Load Existing Scan Results")
+    print("Enter the path to a previously saved JSON results file:")
+    file_path = input("File path: ").strip()
+
+    if not file_path:
+        return
+    try:
+        with open(file_path, 'r') as f:
+            file_content = json.load(f)
+        # Create scan results structure
+        scan_id = datetime.now().strftime('%Y%m%d_%H%M%S_loaded')
+        scan_res = {
+            'id': scan_id,
+            'scan_metadata': {
+                'timestamp': datetime.now().isoformat(),
+                'loaded_from': file_path,
+                'scanner_version': '1.0.0'
+            }
+        }
+        # Handle different file formats
+        if 'threat_results' in file_content and 'network_data' in file_content:
+            # Full scan results formats
+            scan_res.update(file_content)
+        elif 'threat_results' in file_content:
+            # Results form main output
+            scan_res['threat_results'] = file_content['threat_results']
+            scan_res['network_data'] = file_content.get('network_data', {})
+        else:
+            # Basic format main output
+            scan_res['threat_results'] = file_content
+            scan_res['network_data'] = {}
+
+        # Store results formats
+        state_manager.set_last_scan_result(scan_res)
+
+        # Add to history
+        threat_results = scan_res.get('threat_results', {})
+        history_entry = {
+            'id': scan_id,
+            'timestamp': scan_res['scan_metadata']['timestamp'],
+            'total_ips': len(threat_results),
+            'malicious_ips': sum(1 for r in threat_results.values() if r.get('is_malicious', False)),
+            'high_threats': sum(1 for r in threat_results.values() if r.get('threat_level') == 'high'),
+            'source': 'loaded'
+        }
+
+        state_manager.add_scan_results_to_history(history_entry)
+        print(f"Successfully loaded results from: {file_path}")
+        # show summary
+        threat_results = scan_res.get('threat_results', {})
+        malicious_count = sum(1 for r in threat_results.values() if r.get('is_malicious', False))
+
+        print(f"Loaded data: {len(threat_results)} IPs, {malicious_count} malicious")
+    except FileNotFoundError:
+        print(f"File not found: {file_path}")
+    except json.JSONDecodeError:
+        print(f"Invalid JSON file: {file_path}")
+    except Exception as e:
+        print(f"Error loading file: {str(e)}")
+
+    input("\nPress Enter to continue...")
+
 
 def main_menu():
     while True:
@@ -606,6 +696,8 @@ def main_menu():
         elif choice == 6:
             generate_advanced_report()
         elif choice == 7:
+            view_scan_history()
+        elif choice == 8:
             print("Exit")
             break
         else:

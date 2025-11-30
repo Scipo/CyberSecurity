@@ -4,21 +4,24 @@ import json
 import asyncio
 import threading
 from datetime import datetime
+from os.path import exists
+
 from flask import Flask, render_template, request, jsonify, send_file, Response
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 from src.network_scanner import NetworkScanner
 from src.threat_intel import ThreatIntelligence
-from src.utils import setup_logging, save_results
+from src.utils import setup_logging
 from src.config.settings import load_config, get_api_key
+from src.state.statemanager import state_manager
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'network-threat-analyzer-secret-key'
 
 # Global variables for scan results
-scan_results = {}
-scan_history = []
+# scan_results = {}
+# scan_history = []
 
 
 # Scanner wrapper for web interface
@@ -49,7 +52,7 @@ class WebScanner:
 
 
 # Global web instance
-web_scanner = WebScanner()
+# web_scanner = WebScanner()
 
 
 @app.route('/')
@@ -66,24 +69,25 @@ def index():
 @app.route('/api/scan', methods=['POST'])
 # API endpoint to run a network scan
 def api_scan():
-    global scan_results, scan_history
-
     try:
-        results = web_scanner.run_scan()
+        scanner = WebScanner()
+        results = scanner.run_scan()
+
         if 'error' in results:
             return jsonify({'success': False, 'error': results['error']})
 
         scan_id = datetime.now().strftime('%Y%m%d_%H%M%S')
-        scan_results[scan_id] = results
-        scan_history.append({
+        results['id'] = scan_id
+        state_manager.set_last_scan_result(results)
+        #ADD History
+        threat_results = results.get('threat_results', {})
+        history_entry = {
             'id': scan_id,
             'timestamp': results['timestamp'],
             'total_ips': len(results.get('threat_results', {})),
-            'malicious_ips': sum(1 for r in results.get('threat_results', {}).values() if r.get('is_malicious', False))
-        })
-
-        # TO DO Check more than 10 records in the future
-        scan_history = scan_history[-10:]
+            'malicious_ips': sum(1 for r in threat_results.values() if r.get('is_malicious', False))
+        }
+        state_manager.add_scan_results_to_history(history_entry)
 
         return jsonify({
             'success': True,
@@ -97,8 +101,9 @@ def api_scan():
 @app.route('/api.results/<scan_id>')
 # Get specific scan results
 def get_results(scan_id):
-    if scan_id in scan_results:
-        return jsonify(scan_results[scan_id])
+    last_scan = state_manager.get_last_scan_result()
+    if last_scan and last_scan.get('id') == scan_id:
+        return jsonify(last_scan)
     else:
         return jsonify({'error': 'Scan not found'}), 404
 
@@ -106,19 +111,24 @@ def get_results(scan_id):
 @app.route('/api/history')
 # Get scan history
 def get_history():
-    return jsonify(scan_history)
+    history = state_manager.get_scan_history()
+    return jsonify(history)
 
 
 @app.route('/api/export/<scan_id>')
 # Export Scan results in Json
 def export_results(scan_id):
-    if scan_id in scan_results:
-        filename = f"threat_scan_{scan_id}.json"
-        filepath = os.path.join('/tmp', filename)
+    last_scan = state_manager.get_last_scan_result()
+    if last_scan and last_scan.get('id') == scan_id:
+        reports_dir = 'reports'
+        os.makedirs(reports_dir, exist_ok=True)
+
+        filename = f"threat_scan_{last_scan}.json"
+        filepath = os.path.join(reports_dir, filename)
 
         with open(filepath, 'w') as f:
-            json.dump(scan_results[scan_id], f, indent=2)
-        return send_file(filepath, as_attachment=True, download_name=filename)
+            json.dump(last_scan, f, indent=2)
+        return send_file(filepath, as_attachment=True, download_name=filename,mimetype='application/json')
     else:
         return jsonify({'error': 'Scan not found'}), 404
 

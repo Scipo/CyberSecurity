@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from datetime import datetime
 
 
 class StateManager:
@@ -51,11 +52,25 @@ class StateManager:
     def add_scan_results_to_history(self, scan_data):
         history = self._state.get('scan_history', [])
 
+        full_scan_history = {
+            'id': scan_data.get('id'),
+            'timestamp': scan_data.get('scan_metadata', {}).get('timestamp', datetime.now().isoformat()),
+            'total_ip': scan_data.get('scan_metadata', {}).get('total_ips_scanned', 0),
+            'malicious_ips': sum(
+                1 for r in scan_data.get('threat_results', {}).values() if r.get('is_malicious', False)),
+            'high_threats': sum(
+                1 for r in scan_data.get('threat_results', {}).values() if r.get('threat_level') == 'high'),
+            'full_results': scan_data
+        }
+
         if len(history) > 100:
             history = history[-99:]
 
-        history.append(scan_data)
+        history.append(full_scan_history)
         self._state['scan_history'] = history
+
+        self._state['last_scan_history'] = scan_data
+
         self._save_state()
 
     # Get scan history
@@ -64,11 +79,26 @@ class StateManager:
 
     # get specific scan by id
     def get_scan_by_id(self, scan_id):
+        last_scan = self._state.get('last_scan_results')
+        if last_scan and last_scan.get('id') == scan_id:
+            return last_scan
+
         history = self.get_scan_history()
         for scan in history:
             if scan.get('id') == scan_id:
                 return scan
         return None
+
+    def get_scan_history_summary(self):
+        history = self._state.get('scan_history', [])
+        return [{
+            'id': scan.get('id'),
+            'timestamp': scan.get('timestamp'),
+            'total_ips': scan.get('total_ips', 0),
+            'malicious_ips': scan.get('malicious_ips', 0),
+            'high_threats': scan.get('high_threats', 0)
+        } for scan in history
+        ]
 
     # cler history
     def clear_history(self):

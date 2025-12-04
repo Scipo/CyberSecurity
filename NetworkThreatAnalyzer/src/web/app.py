@@ -7,6 +7,8 @@ from os.path import exists
 
 from flask import Flask, render_template, request, jsonify, send_file, Response
 
+from src.reporting.generator import ReportGenerator
+
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 from src.network_scanner import NetworkScanner
@@ -287,6 +289,64 @@ def test_api():
         logger.error(f"API test failed: {e}", exc_info=True)
         return jsonify({'success': False, 'error': str(e)}), 500
 
+# Generating reports web
+@app.route('/api/generate_report', methods=['POST'])
+def generate_report():
+    try:
+        data = request.json
+        scan_id = data.get('scan_id')
+        formats = data.get('formats', ['html'])
+
+        scan_results = state_manager.get_scan_by_id()
+
+        if scan_id not in scan_results:
+            return jsonify({'success': False, 'error': 'Scan not found'})
+        generator = ReportGenerator()
+        generator_report = {}
+
+        for frm in formats:
+            try:
+                if frm == 'html':
+                    report_path = generator.generate_html_report(scan_results)
+                    generator_report['html'] = report_path
+                elif frm == 'json':
+                    report_path = generator.generate_html_report(scan_results)
+                    generator_report['json'] = report_path
+                elif frm == 'cvs':
+                     report_path = generator.generate_html_report(scan_results)
+                     generator_report['cvs'] = report_path
+                elif frm == 'pdf':
+                    try:
+                        from weasyprint import HTML
+                        report_path = generator.generate_html_report(scan_results)
+                        generator_report['pdf'] = report_path
+                    except ImportError:
+                        generator_report['pdf'] = 'Error: PDF generation requires WeasyPrint. Install with: pip install weasyprint'
+                elif frm == 'all':
+                    # Generate all supported formats
+                    for fmt in ['html', 'json', 'csv', 'executive']:
+                        try:
+                            if fmt == 'html':
+                                path = generator.generate_html_report(scan_results)
+                            elif fmt == 'json':
+                                path = generator.generate_json_report(scan_results)
+                            elif fmt == 'csv':
+                                path = generator.generate_csv_report(scan_results)
+                            generator_report[fmt] = path
+                        except Exception as fmt_error:
+                            generator_report[fmt] = f'Error: {str(fmt_error)}'
+                else:
+                    generator_report[frm] = f'Error: Unsupported format: {frm}'
+            except Exception as e:
+                   generator_report[frm] = f'Error: {str(e)}'
+        return jsonify({
+            'success': True,
+            'scan_id': scan_id,
+            'reports': generator_report
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
 
 @app.errorhandler(404)
 def not_found(error):
@@ -299,7 +359,7 @@ def internal_error(error):
 # Run web interface
 def run_web_interface(host='127.0.0.1', port=5000, debug=False):
     print(f"🚀 Starting Network Threat Analyzer Web Interface...")
-    print(f"📡 Access at: https://{host}:{port}")
+    print(f"📡 Access at: http://{host}:{port}")
     print(f"🛑 Press Ctrl+C to stop")
     app.run(host=host, port=port, debug=debug, threaded=True)
 

@@ -141,6 +141,7 @@
 
                     historyList.appendChild(historyItem);
                 });
+                return historyList;
             } catch (error) {
                 console.error('Error loading history:', error);
             }
@@ -151,10 +152,12 @@
                 const response = await fetch(`/api/results/${scanId}`);
                 const results = await response.json();
 
-                if (!results.error) {
-                    currentResults = results;
-                    displayResults(results);
+                if (results.error) {
+                   alert('Failed to load scan: ' + results.error);
+                   return;
                 }
+                currentResults = results;
+                displayResults(results);
             } catch (error) {
                 console.error('Error loading scan result:', error);
             }

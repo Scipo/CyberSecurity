@@ -14,84 +14,118 @@
         <p>Real-time network security monitoring and threat intelligence</p>
     </div>
 
-        <div class="dashboard">
-            <div class="card">
-                <h2>Quick Stats</h2>
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <div class="stat-number stat-primary" id="totalConnections">0</div>
-                        <div>Active Connections</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-number stat-primary" id="publicIPs">0</div>
-                        <div>Public IPs</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-number stat-success" id="maliciousIPs">0</div>
-                        <div>Malicious IPs</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-number stat-warning" id="highThreats">0</div>
-                        <div>High Threats</div>
-                    </div>
+    <div class="dashboard">
+        <div class="card">
+            <h2>Quick Stats</h2>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-number stat-primary" id="totalConnections">0</div>
+                    <div>Active Connections</div>
                 </div>
-            </div>
-
-            <div class="card">
-                <h2>⚡ Quick Actions</h2>
-                <div class="scan-controls">
-                    <button class="btn" onclick="runScan()">Run Security Scan</button>
-                    <button class="btn btn-success" onclick="testAPI()">Test API</button>
-                    <button class="btn" onclick="showTab('config')">Configuration</button>
+                <div class="stat-card">
+                    <div class="stat-number stat-primary" id="publicIPs">0</div>
+                    <div>Public IPs</div>
                 </div>
-                <div id="apiStatus" style="margin-top: 15px; padding: 10px; border-radius: 6px; display: none;"></div>
+                <div class="stat-card">
+                    <div class="stat-number stat-success" id="maliciousIPs">0</div>
+                    <div>Malicious IPs</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number stat-warning" id="highThreats">0</div>
+                    <div>High Threats</div>
+                </div>
             </div>
         </div>
 
-        <div class="loading" id="loading">
-            <div class="spinner"></div>
-            <p>Scanning network and checking threat intelligence...</p>
+        <div class="card">
+            <h2>⚡ Quick Actions</h2>
+            <div class="scan-controls">
+                <button class="btn" onclick="runScan()">Run Security Scan</button>
+                <button class="btn btn-success" onclick="testAPI()">Test API</button>
+                <button class="btn" onclick="showTab('config')">Configuration</button>
+            </div>
+            <div id="apiStatus" style="margin-top: 15px; padding: 10px; border-radius: 6px; display: none;"></div>
+        </div>
+    </div>
+
+    <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <p>Scanning network and checking threat intelligence...</p>
+    </div>
+
+    <div class="tab-container">
+        <div class="tabs">
+            <div class="tab active" onclick="showTab('results')">Scan Results</div>
+            <div class="tab" onclick="showTab('history')">Scan History</div>
+            <div class="tab" onclick="showTab('reports')">Reports</div>
+            <div class="tab" onclick="showTab('config')">Configuration</div>
         </div>
 
-        <div class="tab-container">
-            <div class="tabs">
-                <div class="tab active" onclick="showTab('results')">Scan Results</div>
-                <div class="tab" onclick="showTab('history')">Scan History</div>
-                <div class="tab" onclick="showTab('config')">Configuration</div>
+        <div class="tab-content active" id="resultsTab">
+            <div class="card">
+                <h2>Latest Scan Results</h2>
+                <div id="resultsSection" class="results-section">
+                    <div id="threatList" class="threat-list"></div>
+                    <div id="noResults" style="text-align: center; padding: 40px; color: #6b7280;">
+                        No scan results yet. Run a scan to see threats.
+                    </div>
+                </div>
             </div>
+        </div>
 
-            <div class="tab-content active" id="resultsTab">
-                <div class="card">
-                    <h2>Latest Scan Results</h2>
-                    <div id="resultsSection" class="results-section">
-                        <div id="threatList" class="threat-list"></div>
-                        <div id="noResults" style="text-align: center; padding: 40px; color: #6b7280;">
-                            No scan results yet. Run a scan to see threats.
+        <div class="tab-content" id="historyTab">
+            <div class="card">
+                <h2>Scan History</h2>
+                <div id="historyList"></div>
+            </div>
+        </div>
+
+        <div class="tab-content" id="reportsTab">
+            <div class="card">
+                <h2>Generate Reports</h2>
+                <div id="reportSection">
+                    <div style="margin-bottom: 20px;">
+                        <p>Generate report from scan results</p>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 15px 0;">
+                            <label style="display: flex; align-items: center; gap: 8px;">
+                                <input type="checkbox" id="formatHtml" checked> HTML
+                            </label>
+                            <label style="display: flex; align-items: center;gap: 8px;">
+                                <input type="checkbox" id="formatJson"> JSON
+                            </label>
+                            <label style="display: flex; align-items: center;gap: 8px;">
+                                <input type="checkbox" id="formatCsv"> CSV
+                            </label>
+                            <label style="display: flex; align-items: center;gap: 8px;">
+                                <input type="checkbox" id="formatPdf"> PDF
+                            </label>
                         </div>
+                        <button class="btn" onclick="generateReports()" id="generateReportBtn">Generate Selected
+                            Reports
+                        </button>
+                        <button class="btn btn-success" onclick="generateAllReports()">Generate All Reports</button>
+                    </div>
+                    <div id="reportResults" style="display: none;">
+                        <h3>Generated Reports</h3>
+                        <div id="reportList"></div>
                     </div>
                 </div>
             </div>
+        </div>
 
-            <div class="tab-content" id="historyTab">
-                <div class="card">
-                    <h2>Scan History</h2>
-                    <div id="historyList"></div>
-                </div>
-            </div>
-
-            <div class="tab-content" id="configTab">
-                <div class="card">
-                    <h2>Configuration</h2>
-                    <div class="config-form">
-                        <label for="apiKey">AbuseIPDB API Key:</label>
-                        <input type="password" id="apiKey" placeholder="Enter your API key">
-                        <button class="btn" onclick="saveConfig()">Save Configuration</button>
-                        <div id="configStatus" style="margin-top: 10px;"></div>
-                    </div>
+        <div class="tab-content" id="configTab">
+            <div class="card">
+                <h2>Configuration</h2>
+                <div class="config-form">
+                    <label for="apiKey">AbuseIPDB API Key:</label>
+                    <input type="password" id="apiKey" placeholder="Enter your API key">
+                    <button class="btn" onclick="saveConfig()">Save Configuration</button>
+                    <div id="configStatus" style="margin-top: 10px;"></div>
                 </div>
             </div>
         </div>
     </div>
+</div>
 <script src="/static/script/setup.js"></script>
 </body>
 </html>

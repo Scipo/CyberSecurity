@@ -1,6 +1,8 @@
 import os
 import sys
 import json
+import tempfile
+import webbrowser
 from datetime import datetime
 from functools import wraps
 from os.path import exists
@@ -24,6 +26,8 @@ app.config['SECRET_KEY'] = 'network-threat-analyzer-secret-key'
 logger = setup_logging(False)
 
 _request_counts = {}
+
+
 def rate_limit(max_request: int = 10, window_seconds: int = 60):
     def decorator(f):
         @wraps(f)
@@ -33,7 +37,7 @@ def rate_limit(max_request: int = 10, window_seconds: int = 60):
 
             if client_ip not in _request_counts:
                 _request_counts[client_ip] = []
-            _request_counts[client_ip] =[
+            _request_counts[client_ip] = [
                 ts for ts in _request_counts[client_ip]
                 if curr_time - ts < window_seconds
             ]
@@ -43,9 +47,12 @@ def rate_limit(max_request: int = 10, window_seconds: int = 60):
                     'error': 'Rate limit exceeded. Please try again later.'
                 }), 429
             _request_counts[client_ip].append(curr_time)
-            return  f(*args, **kwargs)
+            return f(*args, **kwargs)
+
         return wrapped
+
     return decorator
+
 
 @app.route('/')
 # Main dashboard page
@@ -58,37 +65,6 @@ def index():
     )
 
 
-# @app.route('/api/scan', methods=['POST'])
-# API endpoint to run a network scan
-# def api_scan():
-#     try:
-#
-#         scanner = WebScanner()
-#         results = scanner.run_scan()
-#
-#         if 'error' in results:
-#             return jsonify({'success': False, 'error': results['error']})
-#
-#         scan_id = datetime.now().strftime('%Y%m%d_%H%M%S')
-#         results['id'] = scan_id
-#         state_manager.set_last_scan_result(results)
-#         #ADD History
-#         threat_results = results.get('threat_results', {})
-#         history_entry = {
-#             'id': scan_id,
-#             'timestamp': results['timestamp'],
-#             'total_ips': len(results.get('threat_results', {})),
-#             'malicious_ips': sum(1 for r in threat_results.values() if r.get('is_malicious', False))
-#         }
-#         state_manager.add_scan_results_to_history(history_entry)
-#
-#         return jsonify({
-#             'success': True,
-#             'scan_id': scan_id,
-#             'results': results
-#         })
-#     except Exception as e:
-#         return jsonify({'success': False, 'error': str(e)})
 @app.route('/api/scan', methods=['POST'])
 @rate_limit(max_request=5, window_seconds=60)
 def api_scan():
@@ -136,14 +112,6 @@ def api_scan():
         return jsonify({'success': False, 'error': f'Scan failed: str(e)'}), 500
 
 
-# @app.route('/api/results/<scan_id>')
-# # Get specific scan results
-# def get_results(scan_id):
-#     last_scan = state_manager.get_last_scan_result()
-#     if last_scan and last_scan.get('id') == scan_id:
-#         return jsonify(last_scan)
-#     else:
-#         return jsonify({'error': 'Scan not found'}), 404
 @app.route('/api/results/<scan_id>')
 def get_results(scan_id):
     """Get specific scan results by ID."""
@@ -172,24 +140,6 @@ def get_history():
         return jsonify({'error': f'Failed to get history: {str(e)}'}), 500
 
 
-# @app.route('/api/export/<scan_id>')
-# # Export Scan results in Json
-# def export_results(scan_id):
-#     last_scan = state_manager.get_last_scan_result()
-#     if last_scan and last_scan.get('id') == scan_id:
-#         reports_dir = 'reports'
-#         os.makedirs(reports_dir, exist_ok=True)
-#
-#         filename = f"threat_scan_{last_scan}.json"
-#         filepath = os.path.join(reports_dir, filename)
-#
-#         with open(filepath, 'w') as f:
-#             json.dump(last_scan, f, indent=2)
-#         return send_file(filepath, as_attachment=True, download_name=filename,mimetype='application/json')
-#     else:
-#         return jsonify({'error': 'Scan not found'}), 404
-
-
 @app.route('/api/export/<scan_id>')
 def export_results(scan_id):
     try:
@@ -200,7 +150,7 @@ def export_results(scan_id):
             return jsonify({'error': 'Scan not found'}), 404
 
         # Create reports directory if it doesn't exist
-        json_str =  json.dumps(scan_data, indent=2, default=str)
+        json_str = json.dumps(scan_data, indent=2, default=str)
 
         filename = f"threat_scan_{scan_id}.json"
         logger.info(f"Exporting scan results: {scan_id}")
@@ -209,8 +159,8 @@ def export_results(scan_id):
             json_str,
             mimetype='application/json',
             headers={
-              'Content-Disposition': f'attachment; filename={filename}',
-              'Content-Type': 'application/json; charset=utf-8'
+                'Content-Disposition': f'attachment; filename={filename}',
+                'Content-Type': 'application/json; charset=utf-8'
             }
         )
     except Exception as e:
@@ -239,7 +189,7 @@ def handle_config():
             logger.info("Configuration updated successfully")
             return jsonify({'success': True})
         except Exception as e:
-            logger.error(f"Failed to save config: {e}",exc_info=True)
+            logger.error(f"Failed to save config: {e}", exc_info=True)
             return jsonify({'success': False, 'error': f'Failed to save config: {str(e)}'}), 500
 
 
@@ -289,6 +239,7 @@ def test_api():
         logger.error(f"API test failed: {e}", exc_info=True)
         return jsonify({'success': False, 'error': str(e)}), 500
 
+
 # Generating reports web
 @app.route('/api/generate_report', methods=['POST'])
 def generate_report():
@@ -313,15 +264,16 @@ def generate_report():
                     report_path = generator.generate_html_report(scan_results)
                     generator_report['json'] = report_path
                 elif frm == 'cvs':
-                     report_path = generator.generate_html_report(scan_results)
-                     generator_report['cvs'] = report_path
+                    report_path = generator.generate_html_report(scan_results)
+                    generator_report['cvs'] = report_path
                 elif frm == 'pdf':
                     try:
                         from weasyprint import HTML
                         report_path = generator.generate_html_report(scan_results)
                         generator_report['pdf'] = report_path
                     except ImportError:
-                        generator_report['pdf'] = 'Error: PDF generation requires WeasyPrint. Install with: pip install weasyprint'
+                        generator_report[
+                            'pdf'] = 'Error: PDF generation requires WeasyPrint. Install with: pip install weasyprint'
                 elif frm == 'all':
                     # Generate all supported formats
                     for fmt in ['html', 'json', 'csv', 'executive']:
@@ -338,7 +290,7 @@ def generate_report():
                 else:
                     generator_report[frm] = f'Error: Unsupported format: {frm}'
             except Exception as e:
-                   generator_report[frm] = f'Error: {str(e)}'
+                generator_report[frm] = f'Error: {str(e)}'
         return jsonify({
             'success': True,
             'scan_id': scan_id,
@@ -348,13 +300,173 @@ def generate_report():
         return jsonify({'success': False, 'error': str(e)})
 
 
+@app.route('/api/reports/<scan_id>/<format>')
+def download_report(scan_id, formats):
+    try:
+        scan_data = state_manager.get_scan_by_id(scan_id)
+        if not scan_data:
+            return jsonify({'error': 'Scan not found'}), 404
+        generator = ReportGenerator()
+        if formats == 'html':
+            report_path = generator.generate_html_report(scan_data, f"threat_report_{scan_id}.html")
+        elif formats == 'json':
+            report_path = generator.generate_json_report(scan_data, f"threat_report_{scan_id}.json")
+        elif formats == 'csv':
+            report_path = generator.generate_csv_report(scan_data, f"threat_report_{scan_id}.csv")
+        elif formats == 'pdf':
+            try:
+                from weasyprint import HTML
+                report_path = generator.generate_pdf_report(scan_data, f"threat_report_{scan_id}.pdf")
+            except ImportError:
+                return jsonify(
+                    {'error': 'PDF generation requires WeasyPrint. Install with: pip install weasyprint'}), 400
+        else:
+            return jsonify({'error': 'Unsupported format'}), 400
+
+        # Determine MIME type
+        mime_types = {
+            'html': 'text/html',
+            'json': 'application/json',
+            'csv': 'text/csv',
+            'pdf': 'application/pdf',
+        }
+        mime_types = mime_types.get(formats, 'application/octet-stream')
+        return send_file(
+            report_path,
+            as_attachment=True,
+            download_name=os.path.basename(report_path),
+            mimetype=mime_types
+        )
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/reports/<scan_id>/html/view')
+def view_report(scan_id):
+    try:
+        scan_data = state_manager.get_scan_by_id(scan_id)
+        if not scan_data:
+            return jsonify({'error': 'Scan not found'}), 404
+        generator = ReportGenerator()
+        # Temporary HTML File
+        with tempfile.NamedTemporaryFile(mode='w', suffix='html', delete=False) as f:
+            temp_file_path = f.name
+        # Generate HTML report to temporary file
+        generator.generate_html_report(scan_data, temp_file_path)
+        # Open in browser
+        absolute_path = os.path.abspath(temp_file_path)
+        webbrowser.open(f'file://{absolute_path}')
+        return jsonify({
+            'success': True,
+            'message': 'Report opened in browser',
+            'file_path': absolute_path
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/reports/<scan_id>/info')
+def get_report_info(scan_id):
+    try:
+        scan_data = state_manager.get_scan_by_id(scan_id)
+        if not scan_data:
+            return jsonify({'error': 'Scan not found'}), 404
+        # Get scan metadata
+        metadata = scan_data.get('scan_metadata', {})
+        threat_results = scan_data.get('threat_results', {})
+        malicious_count = sum(1 for r in threat_results.values() if r.get('is_malicious', False))
+        high_threat_count = sum(1 for r in threat_results.values() if r.get('threat_level') == 'high')
+        return jsonify({
+            'success': True,
+            'scan_id': scan_id,
+            'scan_info': {
+                'timestamp': metadata.get('timestamp'),
+                'total_ips': metadata.get('total_ips_scanned', 0),
+                'malicious_ips': malicious_count,
+                'high_threats': high_threat_count
+            },
+            'available_formats': [
+                {'id': 'html', 'name': 'HTML Report', 'mime': 'text/html'},
+                {'id': 'json', 'name': 'JSON Data', 'mime': 'application/json'},
+                {'id': 'csv', 'name': 'CSV Export', 'mime': 'text/csv'},
+                {'id': 'pdf', 'name': 'PDF Document', 'mime': 'application/pdf'},
+                {'id': 'executive', 'name': 'Executive Summary', 'mime': 'text/markdown'}
+            ]
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# Generate all reports
+@app.route('/api/reports/<scan_id>/generate_all')
+def generate_all_reports(scan_id):
+    try:
+        scan_data = state_manager.get_scan_by_id(scan_id)
+        if not scan_data:
+            return jsonify({'error': 'Scan not found'}), 404
+        generator = ReportGenerator()
+        generate_reports = {}
+
+        format_to_generate = ['html', 'json', 'cvs', 'pdf']
+        for frm in format_to_generate:
+            try:
+                if frm == 'html':
+                    report_path = generator.generate_html_report(scan_data, f"threat_report_{scan_id}.html")
+                elif frm == 'json':
+                    report_path = generator.generate_json_report(scan_data, f"threat_report_{scan_id}.json")
+                elif frm == 'csv':
+                    report_path = generator.generate_csv_report(scan_data, f"threat_report_{scan_id}.csv")
+                generate_reports[frm] = {
+                    'path': report_path,
+                    'size': os.path.getsize(report_path) if os.path.exists(report_path) else 0,
+                    'download_url': f'/api/reports/{scan_id}/{frm}'
+                }
+            except Exception as e:
+                generate_reports[frm] = {
+                    'error': str(e),
+                    'path': None
+                }
+            try:
+                from weasyprint import HTML
+                pdf_path = generator.generate_pdf_report(scan_data, f"threat_report_{scan_id}.pdf")
+                generate_reports['pdf'] = {
+                    'path': pdf_path,
+                    'size': os.path.getsize(pdf_path) if os.path.exists(pdf_path) else 0,
+                    'download_url': f'/api/reports/{scan_id}/pdf'
+                }
+            except ImportError:
+                generate_reports['pdf'] = {
+                    'error': 'PDF generation requires WeasyPrint',
+                    'note': 'Install with: pip install weasyprint'
+                }
+            except Exception as e:
+                generate_reports['pdf'] = {
+                    'error': str(e),
+                    'path': None
+                }
+            return jsonify({
+                'success': True,
+                'scan_id': scan_id,
+                'reports': generate_reports,
+                'download_all_url': f'/api/reports/{scan_id}/download_bundle'
+            })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# Download all reports as a zip bundle
+def download_report_bundle(scan_id):
+    pass
+
 @app.errorhandler(404)
 def not_found(error):
     return jsonify({'error': 'Endpoint not found'}), 404
+
+
 @app.errorhandler(500)
 def internal_error(error):
     logger.error(f"Internal server error: {error}", exc_info=True)
     return jsonify({'error': 'Internal server error'}), 500
+
 
 # Run web interface
 def run_web_interface(host='127.0.0.1', port=5000, debug=False):

@@ -453,9 +453,51 @@ def generate_all_reports(scan_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+
 # Download all reports as a zip bundle
 def download_report_bundle(scan_id):
-    pass
+    try:
+        import zipfile
+        from io import BytesIO
+        scan_data = state_manager.get_scan_by_id(scan_id)
+        if not scan_data:
+            return jsonify({'error': 'Scan not found'}), 404
+        generator = ReportGenerator()
+        # Create in-memory ZIP file
+        memory_file = BytesIO()
+        with zipfile.ZipFile(memory_file, 'w', zipfile.ZIP_DEFLATED) as zf:
+            formats = ['html', 'json', 'csv', 'pdf']
+            for frm in formats:
+                try:
+                    if frm == 'html':
+                        report_path = generator.generate_html_report(scan_data, f"threat_report_{scan_id}.html")
+                    elif frm == 'json':
+                        report_path = generator.generate_json_report(scan_data, f"threat_report_{scan_id}.json")
+                    elif frm == 'csv':
+                        report_path = generator.generate_csv_report(scan_data, f"threat_report_{scan_id}.csv")
+                    zf.write(report_path, os.path.basename(report_path))
+                except Exception as e:
+                    # Create error file for failed formats
+                    error_content = f"Failed to generate {format} report: {str(e)}"
+                    zf.writestr(f"ERROR_{format}.txt", error_content)
+                try:
+                    from weasyprint import HTML
+                    pdf_path = generator.generate_pdf_report(scan_data, f"threat_report_{scan_id}.pdf")
+                    zf.write(pdf_path, os.path.basename(pdf_path))
+                except ImportError:
+                    zf.writestr("NOTE_pdf.txt", "PDF requires WeasyPrint: pip install weasyprint")
+                except Exception as e:
+                    zf.writestr("ERROR_pdf.txt", f"Failed to generate PDF: {str(e)}")
+            memory_file.seek(0)
+            return send_file(
+                memory_file,
+                as_attachment=True,
+                download_name=f"threat_reports_{scan_id}.zip",
+                mimetype='application/zip'
+            )
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 
 @app.errorhandler(404)
 def not_found(error):

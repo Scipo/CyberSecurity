@@ -243,83 +243,96 @@ def test_api():
 # Generating reports web
 @app.route('/api/generate_report', methods=['POST'])
 def generate_report():
+    """Generate reports in various formats using StateManager."""
     try:
         data = request.json
         scan_id = data.get('scan_id')
         formats = data.get('formats', ['html'])
 
-        scan_results = state_manager.get_scan_by_id()
+        # Use StateManager to get scan results
+        scan_data = state_manager.get_scan_by_id(scan_id)
 
-        if scan_id not in scan_results:
+        if not scan_data:
             return jsonify({'success': False, 'error': 'Scan not found'})
-        generator = ReportGenerator()
-        generator_report = {}
 
-        for frm in formats:
+        generator = ReportGenerator()
+        generated_reports = {}
+
+        for fmt in formats:
             try:
-                if frm == 'html':
-                    report_path = generator.generate_html_report(scan_results)
-                    generator_report['html'] = report_path
-                elif frm == 'json':
-                    report_path = generator.generate_html_report(scan_results)
-                    generator_report['json'] = report_path
-                elif frm == 'cvs':
-                    report_path = generator.generate_html_report(scan_results)
-                    generator_report['cvs'] = report_path
-                elif frm == 'pdf':
+                if fmt == 'html':
+                    report_path = generator.generate_html_report(scan_data)
+                    generated_reports['html'] = report_path
+                elif fmt == 'json':
+                    report_path = generator.generate_json_report(scan_data)
+                    generated_reports['json'] = report_path
+                elif fmt == 'csv':
+                    report_path = generator.generate_csv_report(scan_data)
+                    generated_reports['csv'] = report_path
+                elif fmt == 'pdf':
                     try:
                         from weasyprint import HTML
-                        report_path = generator.generate_html_report(scan_results)
-                        generator_report['pdf'] = report_path
+                        report_path = generator.generate_pdf_report(scan_data)
+                        generated_reports['pdf'] = report_path
                     except ImportError:
-                        generator_report[
+                        generated_reports[
                             'pdf'] = 'Error: PDF generation requires WeasyPrint. Install with: pip install weasyprint'
-                elif frm == 'all':
+                elif fmt == 'all':
                     # Generate all supported formats
                     for fmt in ['html', 'json', 'csv', 'executive']:
                         try:
                             if fmt == 'html':
-                                path = generator.generate_html_report(scan_results)
+                                path = generator.generate_html_report(scan_data)
                             elif fmt == 'json':
-                                path = generator.generate_json_report(scan_results)
+                                path = generator.generate_json_report(scan_data)
                             elif fmt == 'csv':
-                                path = generator.generate_csv_report(scan_results)
-                            generator_report[fmt] = path
+                                path = generator.generate_csv_report(scan_data)
+                            generated_reports[fmt] = path
                         except Exception as fmt_error:
-                            generator_report[fmt] = f'Error: {str(fmt_error)}'
+                            generated_reports[fmt] = f'Error: {str(fmt_error)}'
                 else:
-                    generator_report[frm] = f'Error: Unsupported format: {frm}'
+                    generated_reports[fmt] = f'Error: Unsupported format: {fmt}'
             except Exception as e:
-                generator_report[frm] = f'Error: {str(e)}'
+                generated_reports[fmt] = f'Error: {str(e)}'
+
         return jsonify({
             'success': True,
             'scan_id': scan_id,
-            'reports': generator_report
+            'reports': generated_reports
         })
+
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 
 
-@app.route('/api/reports/<scan_id>/<format>')
-def download_report(scan_id, formats):
+@app.route('/api/reports/<scan_id>/<frm>')
+def download_report(scan_id, frm):
+    """Download a specific report using StateManager."""
     try:
+        # Use StateManager to get scan results
         scan_data = state_manager.get_scan_by_id(scan_id)
+
         if not scan_data:
             return jsonify({'error': 'Scan not found'}), 404
+
         generator = ReportGenerator()
-        if formats == 'html':
+
+        # Generate report with scan ID in filename
+        if frm == 'html':
             report_path = generator.generate_html_report(scan_data, f"threat_report_{scan_id}.html")
-        elif formats == 'json':
+        elif frm == 'json':
             report_path = generator.generate_json_report(scan_data, f"threat_report_{scan_id}.json")
-        elif formats == 'csv':
+        elif frm == 'csv':
             report_path = generator.generate_csv_report(scan_data, f"threat_report_{scan_id}.csv")
-        elif formats == 'pdf':
+        elif frm == 'pdf':
             try:
                 from weasyprint import HTML
                 report_path = generator.generate_pdf_report(scan_data, f"threat_report_{scan_id}.pdf")
             except ImportError:
                 return jsonify(
                     {'error': 'PDF generation requires WeasyPrint. Install with: pip install weasyprint'}), 400
+        elif frm == 'executive':
+            report_path = generator.generate_executive_summary(scan_data, f"executive_summary_{scan_id}.md")
         else:
             return jsonify({'error': 'Unsupported format'}), 400
 
@@ -329,53 +342,72 @@ def download_report(scan_id, formats):
             'json': 'application/json',
             'csv': 'text/csv',
             'pdf': 'application/pdf',
+            'executive': 'text/markdown'
         }
-        mime_types = mime_types.get(formats, 'application/octet-stream')
+
+        mime_type = mime_types.get(frm, 'application/octet-stream')
+
         return send_file(
             report_path,
             as_attachment=True,
             download_name=os.path.basename(report_path),
-            mimetype=mime_types
+            mimetype=mime_type
         )
+
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-
 @app.route('/api/reports/<scan_id>/html/view')
-def view_report(scan_id):
+def view_html_report(scan_id):
     try:
+        # Use StateManager to get scan results
         scan_data = state_manager.get_scan_by_id(scan_id)
+
         if not scan_data:
             return jsonify({'error': 'Scan not found'}), 404
+
         generator = ReportGenerator()
-        # Temporary HTML File
-        with tempfile.NamedTemporaryFile(mode='w', suffix='html', delete=False) as f:
+
+        # Create temporary HTML file
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False) as f:
             temp_file_path = f.name
+
         # Generate HTML report to temporary file
         generator.generate_html_report(scan_data, temp_file_path)
-        # Open in browser
+
+        # Convert to absolute path for browser
         absolute_path = os.path.abspath(temp_file_path)
+
+        # Open in browser
         webbrowser.open(f'file://{absolute_path}')
+
         return jsonify({
             'success': True,
             'message': 'Report opened in browser',
             'file_path': absolute_path
         })
+
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 
 @app.route('/api/reports/<scan_id>/info')
 def get_report_info(scan_id):
+
     try:
+        # Use StateManager to get scan results
         scan_data = state_manager.get_scan_by_id(scan_id)
+
         if not scan_data:
             return jsonify({'error': 'Scan not found'}), 404
+
         # Get scan metadata
         metadata = scan_data.get('scan_metadata', {})
         threat_results = scan_data.get('threat_results', {})
+
         malicious_count = sum(1 for r in threat_results.values() if r.get('is_malicious', False))
         high_threat_count = sum(1 for r in threat_results.values() if r.get('threat_level') == 'high')
+
         return jsonify({
             'success': True,
             'scan_id': scan_id,
@@ -390,9 +422,9 @@ def get_report_info(scan_id):
                 {'id': 'json', 'name': 'JSON Data', 'mime': 'application/json'},
                 {'id': 'csv', 'name': 'CSV Export', 'mime': 'text/csv'},
                 {'id': 'pdf', 'name': 'PDF Document', 'mime': 'application/pdf'},
-                {'id': 'executive', 'name': 'Executive Summary', 'mime': 'text/markdown'}
             ]
         })
+
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -401,100 +433,128 @@ def get_report_info(scan_id):
 @app.route('/api/reports/<scan_id>/generate_all')
 def generate_all_reports(scan_id):
     try:
+        # Use StateManager to get scan results
         scan_data = state_manager.get_scan_by_id(scan_id)
+
         if not scan_data:
             return jsonify({'error': 'Scan not found'}), 404
-        generator = ReportGenerator()
-        generate_reports = {}
 
-        format_to_generate = ['html', 'json', 'cvs', 'pdf']
-        for frm in format_to_generate:
+        generator = ReportGenerator()
+        generated_reports = {}
+
+        formats_to_generate = ['html', 'json', 'csv', 'executive']
+
+        for format in formats_to_generate:
             try:
-                if frm == 'html':
+                if format == 'html':
                     report_path = generator.generate_html_report(scan_data, f"threat_report_{scan_id}.html")
-                elif frm == 'json':
+                elif format == 'json':
                     report_path = generator.generate_json_report(scan_data, f"threat_report_{scan_id}.json")
-                elif frm == 'csv':
+                elif format == 'csv':
                     report_path = generator.generate_csv_report(scan_data, f"threat_report_{scan_id}.csv")
-                generate_reports[frm] = {
+
+                generated_reports[format] = {
                     'path': report_path,
                     'size': os.path.getsize(report_path) if os.path.exists(report_path) else 0,
-                    'download_url': f'/api/reports/{scan_id}/{frm}'
+                    'download_url': f'/api/reports/{scan_id}/{format}'
                 }
+
             except Exception as e:
-                generate_reports[frm] = {
+                generated_reports[format] = {
                     'error': str(e),
                     'path': None
                 }
-            try:
-                from weasyprint import HTML
-                pdf_path = generator.generate_pdf_report(scan_data, f"threat_report_{scan_id}.pdf")
-                generate_reports['pdf'] = {
-                    'path': pdf_path,
-                    'size': os.path.getsize(pdf_path) if os.path.exists(pdf_path) else 0,
-                    'download_url': f'/api/reports/{scan_id}/pdf'
-                }
-            except ImportError:
-                generate_reports['pdf'] = {
-                    'error': 'PDF generation requires WeasyPrint',
-                    'note': 'Install with: pip install weasyprint'
-                }
-            except Exception as e:
-                generate_reports['pdf'] = {
-                    'error': str(e),
-                    'path': None
-                }
-            return jsonify({
-                'success': True,
-                'scan_id': scan_id,
-                'reports': generate_reports,
-                'download_all_url': f'/api/reports/{scan_id}/download_bundle'
-            })
+
+        # Try PDF separately (optional due to dependencies)
+        try:
+            from weasyprint import HTML
+            pdf_path = generator.generate_pdf_report(scan_data, f"threat_report_{scan_id}.pdf")
+            generated_reports['pdf'] = {
+                'path': pdf_path,
+                'size': os.path.getsize(pdf_path) if os.path.exists(pdf_path) else 0,
+                'download_url': f'/api/reports/{scan_id}/pdf'
+            }
+        except ImportError:
+            generated_reports['pdf'] = {
+                'error': 'PDF generation requires WeasyPrint',
+                'note': 'Install with: pip install weasyprint'
+            }
+        except Exception as e:
+            generated_reports['pdf'] = {
+                'error': str(e),
+                'path': None
+            }
+
+        return jsonify({
+            'success': True,
+            'scan_id': scan_id,
+            'reports': generated_reports,
+            'download_all_url': f'/api/reports/{scan_id}/download_bundle'
+        })
+
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 
 # Download all reports as a zip bundle
+@app.route('/api/reports/<scan_id>/download_bundle')
 def download_report_bundle(scan_id):
+    """Download all reports as a ZIP bundle."""
     try:
         import zipfile
         from io import BytesIO
+
+        # Use StateManager to get scan results
         scan_data = state_manager.get_scan_by_id(scan_id)
+
         if not scan_data:
             return jsonify({'error': 'Scan not found'}), 404
+
         generator = ReportGenerator()
+
         # Create in-memory ZIP file
         memory_file = BytesIO()
         with zipfile.ZipFile(memory_file, 'w', zipfile.ZIP_DEFLATED) as zf:
-            formats = ['html', 'json', 'csv', 'pdf']
-            for frm in formats:
+            # Generate and add each report format to ZIP
+            formats = ['html', 'json', 'csv', 'executive']
+
+            for format in formats:
                 try:
-                    if frm == 'html':
+                    if format == 'html':
                         report_path = generator.generate_html_report(scan_data, f"threat_report_{scan_id}.html")
-                    elif frm == 'json':
+                    elif format == 'json':
                         report_path = generator.generate_json_report(scan_data, f"threat_report_{scan_id}.json")
-                    elif frm == 'csv':
+                    elif format == 'csv':
                         report_path = generator.generate_csv_report(scan_data, f"threat_report_{scan_id}.csv")
+
+
+                    # Add file to ZIP
                     zf.write(report_path, os.path.basename(report_path))
+
                 except Exception as e:
                     # Create error file for failed formats
                     error_content = f"Failed to generate {format} report: {str(e)}"
                     zf.writestr(f"ERROR_{format}.txt", error_content)
-                try:
-                    from weasyprint import HTML
-                    pdf_path = generator.generate_pdf_report(scan_data, f"threat_report_{scan_id}.pdf")
-                    zf.write(pdf_path, os.path.basename(pdf_path))
-                except ImportError:
-                    zf.writestr("NOTE_pdf.txt", "PDF requires WeasyPrint: pip install weasyprint")
-                except Exception as e:
-                    zf.writestr("ERROR_pdf.txt", f"Failed to generate PDF: {str(e)}")
-            memory_file.seek(0)
-            return send_file(
-                memory_file,
-                as_attachment=True,
-                download_name=f"threat_reports_{scan_id}.zip",
-                mimetype='application/zip'
-            )
+
+            # Try PDF if available
+            try:
+                from weasyprint import HTML
+                pdf_path = generator.generate_pdf_report(scan_data, f"threat_report_{scan_id}.pdf")
+                zf.write(pdf_path, os.path.basename(pdf_path))
+            except ImportError:
+                zf.writestr("NOTE_pdf.txt", "PDF requires WeasyPrint: pip install weasyprint")
+            except Exception as e:
+                zf.writestr("ERROR_pdf.txt", f"Failed to generate PDF: {str(e)}")
+
+        memory_file.seek(0)
+
+        return send_file(
+            memory_file,
+            as_attachment=True,
+            download_name=f"threat_reports_{scan_id}.zip",
+            mimetype='application/zip'
+        )
+
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

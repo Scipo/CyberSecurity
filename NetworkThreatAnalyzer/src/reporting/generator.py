@@ -21,13 +21,14 @@ class ReportGenerator:
 
     def __init__(self, output_dir='reports'):
         self.output_dir = Path(output_dir)
-        self.output_dir.mkdir(exist_ok=True)
+        self.output_dir.mkdir(parents=True, exist_ok=True)
 
     # Generate HTML report
     def generate_html_report(self, results, filename=None):
         if not filename:
             filename = f"threat_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.html"
 
+        filename = os.path.basename(filename)
         filepath = self.output_dir / filename
 
         # Extract summary data
@@ -46,6 +47,7 @@ class ReportGenerator:
         if not filename:
             filename = f"threat_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
 
+        filename = os.path.basename(filename)
         filepath = self.output_dir / filename
 
         report_data = {
@@ -69,6 +71,7 @@ class ReportGenerator:
         if not filename:
             filename = f"threat_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
 
+        filename = os.path.basename(filename)
         filepath = self.output_dir / filename
 
         with open(filepath, 'w', newline='', encoding='utf-8') as f:
@@ -109,6 +112,7 @@ class ReportGenerator:
         if not filename:
             filename = f"threat_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
 
+        filename = os.path.basename(filename)
         filepath = self.output_dir / filename
 
         # First generate HTML report

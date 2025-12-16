@@ -58,8 +58,8 @@ class ReportGenerator:
     # Generate HTML report
     def generate_html_repot(self, results: Dict[str, Any], filename: Optional[str] = None) -> str:
         try:
-            # if not results or isinstance(results, dict):
-            #     raise ValueError("Invalid results data provided")
+            if not results or isinstance(results, dict):
+                raise ValueError("Invalid results data provided")
             filepath = self._validate_and_prepare_path(filename, '.html')
             # Extract summary and threat data
             summary = self._generate_summary(results)

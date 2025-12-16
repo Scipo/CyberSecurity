@@ -14,7 +14,7 @@ from src.web.app import run_web_interface
 from src.threat_intel import ThreatIntelligence
 from src.utils import setup_logging, save_results, display_results
 from src.config.settings import load_config, save_config, get_api_key
-from src.reporting.generator import ReportGenerator, HAS_WEASYPRINT
+from src.reporting.generator1 import ReportGenerator, HAS_WEASYPRINT
 from src.integrations.notifications import NotificationManager
 from src.state.statemanager import state_manager
 
@@ -324,8 +324,18 @@ def run_network_scan():
 
 # Automatically generate reports after scan
 def generate_reports_after_scan(scan_results):
+    print(f"DEBUG: scan_results type: {type(scan_results)}")
+    print(f"DEBUG: scan_results keys: {list(scan_results.keys()) if isinstance(scan_results, dict) else 'Not a dict'}")
     config = load_config()
     report_formats = config.get('REPORT_FORMATS', ['json'])
+    print(f"DEBUG: report_formats: {report_formats}, type: {type(report_formats)}")
+    if not isinstance(report_formats, list):
+        report_formats = ['json']
+    report_formats = [fmt for fmt in report_formats if isinstance(fmt, str)]
+    if not report_formats:
+        print("No valid report formats specified in config")
+        return []
+
     output_dir = config.get('REPORT_OUTPUT_DIR', 'reports')
 
     print(f"\nGenerating reports in formats: {', '.join(report_formats)}")
@@ -335,8 +345,9 @@ def generate_reports_after_scan(scan_results):
     try:
         for rep_f in report_formats:
             try:
+                print(f"DEBUG: Processing format: {rep_f}")
                 if rep_f == 'html':
-                    report_path = generator.generate_html_report(scan_results)
+                    report_path = generator.generate_html_repot(scan_results)
                     generated_reports.append(('HTML', report_path))
                 elif rep_f == 'json':
                     report_path = generator.generate_json_report(scan_results)
@@ -483,7 +494,7 @@ def generate_advanced_report():
     for frm in formats_to_generate:
         try:
             if frm == 'html':
-                report_path = generator.generate_html_report(last_scan_results)
+                report_path = generator.generate_html_repot(last_scan_results)
                 generated_reports.append(('HTML', report_path))
                 print(f"Generated HTML report: {report_path}")
             elif frm == 'json':
@@ -512,7 +523,7 @@ def generate_advanced_report():
         for report_type, report_path in generated_reports:
             print(f" {report_type}:{report_path}")
         # Open html if generated
-        html_reports = [path for type, path in generated_reports if type == 'HTML']
+        html_reports = [path for tpe, path in generated_reports if tpe == 'HTML']
         if html_reports and input("Open HTML report in browser? (Y/n): ").strip().lower() == 'y':
             import webbrowser
             webbrowser.open(f'file://{os.path.abspath(html_reports[0])}')
